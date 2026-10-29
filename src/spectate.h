@@ -107,6 +107,7 @@ struct state {
     struct { const char *name; float at; int ok; } log[16];
     void *pad[15];          /* virtual controller buttons and D-pad arrows (hud.c) */
     void *help_arrow[4];    /* D-pad arrows of the help lines (hud.c) */
+    int bar_stop;           /* the powerslide meter gets "stop" when the play goes on (hud.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
     /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,

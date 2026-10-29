@@ -504,6 +504,14 @@ void hud_late(void)
     if (root && root == sp.root && ghost) lap_lines(root, ghost);
 }
 
+/* The kart is in a slide: its slide timer runs (move component +0xf8, timer +0x14) */
+static int sliding(void *kart)
+{
+    void *move = g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
+    void *timer = move ? AT(move, 0xf8, void *) : 0;
+    return timer && AT(timer, 0x14, uint8_t);
+}
+
 /* Every frame of a spectator run */
 void hud_frame(void *manager)
 {
@@ -531,11 +539,16 @@ void hud_frame(void *manager)
         game_hud_bar(sp.hud, AT(sp.hud, 0x8c, int32_t));     /* _boostBarIndex */
         sp.bar_kart = kart;
         /* The powerslide meter follows the kart's slide events: after a switch it is told whether the
-         * new kart is in a slide now (its slide timer runs: move component +0xf8, timer +0x14) */
-        void *move = g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
-        void *timer = move ? AT(move, 0xf8, void *) : 0;
-        if (timer && AT(timer, 0x14, uint8_t)) sp_boost_update(sp.hud, 1);
+         * new kart is in a slide now. "Stop" empties the meter with an animation on game time, which does
+         * not run while paused: then the meter gets the new kart's (empty) slide and the stop when the
+         * play goes on. */
+        if (sliding(kart) || sp.paused) sp_boost_update(sp.hud, 1);
         else game_hud_boost_stop(sp.hud);
+        sp.bar_stop = sp.paused;
+    }
+    if (sp.bar_stop && !sp.paused) {
+        if (!sliding(kart)) game_hud_boost_stop(sp.hud);
+        sp.bar_stop = 0;
     }
     /* The game's lap display shows the watched ghost's lap. Its final lap effect plays once per
      * entry into the last lap (+0x88 cleared below it, e.g. after a rewind). */
