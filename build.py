@@ -35,7 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_set_entity_position': 0x3dc8e0, 'game_set_entity_angles': 0xbabbf0,
+    'game_set_entity_position': 0x3dc8e0, 'game_hud_set_lap': 0xe63f20, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
     'game_play_continue': 0x28a6b6, 'game_input_continue': 0xa3b356, 'game_pad_continue': 0x3d4dd6, 'game_fill_ghosts_continue': 0xfceac6,

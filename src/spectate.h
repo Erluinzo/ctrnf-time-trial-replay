@@ -102,6 +102,9 @@ struct state {
     uint64_t forced;        /* 1 << B_ button the patch pressed this frame (released on the next), 0 = none */
     int backs_heard;        /* "back" sounds heard in step 3 (sounds.c) */
     void *preview;          /* 1 = the kart on the character screen is hidden */
+    float lap_starts[8];    /* the watched ghost's lap 2, 3... start times (hud.c) */
+    int lap_count;          /* entries in lap_starts */
+    int shown_lap;          /* lap the HUD shows, 0 = none yet */
     void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
     float placing_time;     /* at this time */
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */

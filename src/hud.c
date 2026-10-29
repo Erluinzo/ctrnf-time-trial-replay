@@ -12,6 +12,7 @@ extern void game_set_pivot(void *placeable, const float *v) GAME;
 extern void game_set_opacity(void *placeable, float opacity) GAME;
 extern void game_set_hidden(void *placeable, int hidden) GAME;
 extern void *game_find_driver(void *drivers, const char *name) GAME;   /* CRacerDriverData by _name, or 0 */
+extern void game_hud_set_lap(void *hud, int lap) GAME;  /* lap display; the final lap effect once (+0x88) */
 extern char *g_racer_manager GAME;      /* +0x18 driver list */
 extern const char g_composition_vtable[] GAME;   /* igGuiComposition */
 extern const char g_minimap_player_vtable[] GAME;    /* CGuiBehaviorMinimapPlayer */
@@ -30,7 +31,9 @@ extern char *g_entity_table GAME;
 #define BAR_TEXTURE_WIDTH 244.0f                /* children are placed from the bar texture's width */
 #define STATUS_BOX 0.11f                        /* see hud_frame */
 #define DIM 0.4f                                /* opacity of a button that is not pressed */
-static const char HIDE[][40] = {"Timer", "Octane_RacerHud_LapDisplay"};     /* compositions */
+static const char HIDE[][40] = {"Timer"};      /* compositions: the player's race timer */
+/* The Reserves Meter mod's pieces (all its versions): the player's reserves, always 0 here */
+static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]"};
 
 /* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
  * port's button_prompts.py), each placed by its middle in HUD space. The left stick leans with the
@@ -222,6 +225,37 @@ static float race_start(void *ghost)
     return 0.0f;
 }
 
+/* Lap starts of a ghost: ghost files keep no laps, but the last move key is on the finish line, so
+ * a lap starts each time the ghost passes close to it (LINE units) going the same way, at least
+ * 10 s after the race start and the last lap start. */
+#define LINE 1500.0f
+static void find_laps(void *ghost, float go)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    int n = count(keys);
+    sp.lap_count = 0;
+    sp.shown_lap = 0;
+    if (n < 3) return;
+    const float *end = &AT(item(keys, n - 1), 0xc, float), *before = &AT(item(keys, n - 2), 0xc, float);
+    float way[3] = {end[0] - before[0], end[1] - before[1], end[2] - before[2]}, last = go, best = 0.0f;
+    int found = -1;
+    for (int i = 1; i < n - 1; i++) {
+        float t = key_time(keys, i);
+        const float *p = &AT(item(keys, i), 0xc, float), *q = &AT(item(keys, i - 1), 0xc, float);
+        float dx = p[0] - end[0], dy = p[1] - end[1], dz = p[2] - end[2], d = dx * dx + dy * dy + dz * dz;
+        int near = t > last + 10.0f && t < key_time(keys, n - 1) - 10.0f && d < LINE * LINE
+                   && (p[0] - q[0]) * way[0] + (p[1] - q[1]) * way[1] + (p[2] - q[2]) * way[2] > 0.0f;
+        if (near && (found < 0 || d < best)) {
+            found = i;
+            best = d;
+        } else if (!near && found >= 0) {   /* left the line: the closest key was the crossing */
+            if (sp.lap_count < 8) sp.lap_starts[sp.lap_count++] = key_time(keys, found);
+            last = key_time(keys, found);
+            found = -1;
+        }
+    }
+}
+
 /* The watched ghost's input bits now (0 past its end) */
 static int inputs(void *ghost)
 {
@@ -285,6 +319,8 @@ void hud_frame(void *manager)
     if (root != sp.root || !sp.time_text || !is_child(root, sp.time_text)) build(project, root);
     hide_player_icon();
     for (int i = 0; i < child_count(root); i++) {
+        for (int h = 0; h < (int)(sizeof HIDE_PIECES / sizeof *HIDE_PIECES); h++)
+            if (same_text(AT(child(root, i), 0x28, const char *), HIDE_PIECES[h])) game_set_hidden(child(root, i), 1);
         void *a = asset(child(root, i));
         if (!a || AT(a, 0, const void *) != g_composition_vtable) continue;
         for (int h = 0; h < (int)(sizeof HIDE / sizeof *HIDE); h++)
@@ -297,6 +333,17 @@ void hud_frame(void *manager)
     if (sp.go_watch != sp.watch) {
         sp.go = race_start(ghost);
         sp.go_watch = sp.watch;
+        find_laps(ghost, sp.go);
+    }
+    /* The game's lap display shows the watched ghost's lap. Its final lap effect plays once per
+     * entry into the last lap (+0x88 cleared below it, e.g. after a rewind). */
+    int lap = 1, laps = g_race_settings ? AT(g_race_settings, 0xc, int32_t) : 0;
+    for (int i = 0; i < sp.lap_count; i++) lap += sp.time >= sp.lap_starts[i];
+    if (laps > 0 && lap > laps) lap = laps;
+    if (sp.hud && lap != sp.shown_lap) {
+        if (lap < laps) AT(sp.hud, 0x88, uint8_t) = 0;
+        game_hud_set_lap(sp.hud, lap);
+        sp.shown_lap = lap;
     }
 
     char text[80], *at = text, *end = text + sizeof text - 16;
@@ -312,10 +359,12 @@ void hud_frame(void *manager)
 
     at = put_driver(text, ghost_name(manager, sp.watch, ghost), end);
     at = put(at, "  ");
-    at = put_number(at, sp.watch + 1, 1);
-    *at++ = '/';
-    at = put_number(at, count(list), 1);
-    at = put(at, "  ");
+    if (count(list) > 1) {      /* "2/3": which ghost, only when there is a choice */
+        at = put_number(at, sp.watch + 1, 1);
+        *at++ = '/';
+        at = put_number(at, count(list), 1);
+        at = put(at, "  ");
+    }
     static const char SPEED_TEXT[][8] = {"x0.1", "x0.5", "x1", "x2", "x3", "x4"};
     at = put(at, sp.scrub < 0 ? "<< x4" : sp.scrub > 0 ? ">> x4" : sp.paused ? "PAUSED" : SPEED_TEXT[sp.speed]);
     *at = 0;
