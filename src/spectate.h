@@ -23,6 +23,8 @@ extern void *game_continue_event_new(void *pool) GAME;
 extern void *game_ghost_look_end_new(void *pool) GAME;      /* CKartEndTemporaryGhostMessage */
 extern void *game_ghost_look_start_new(void *pool) GAME;    /* CKartStartTemporaryGhostMessage */
 extern void game_send_message(void *message, void *target, void *sender) GAME;
+extern void game_set_entity_hidden(void *entity, int hidden) GAME;   /* drawing only */
+extern void *game_get_driver(void *kart) GAME;
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
@@ -32,6 +34,7 @@ extern void *g_kart_manager GAME;
 extern void *g_kart_camera_meta GAME;
 extern void *g_hud_meta GAME;            /* CRacerHudComponent */
 extern void *g_vehicle_audio_meta GAME;  /* CVehicleAudioComponent */
+extern void *g_child_manager_meta GAME;  /* CChildManagerComponent */
 extern void *g_race_settings GAME;
 extern void *g_string_pool GAME;
 extern char *g_gui_manager GAME;

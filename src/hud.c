@@ -12,6 +12,12 @@ extern void game_set_pivot(void *placeable, const float *v) GAME;
 extern void game_set_opacity(void *placeable, float opacity) GAME;
 extern void game_set_hidden(void *placeable, int hidden) GAME;
 extern const char g_composition_vtable[] GAME;   /* igGuiComposition */
+extern const char g_minimap_player_vtable[] GAME;    /* CGuiBehaviorMinimapPlayer */
+extern void *g_race_system_meta GAME;   /* CWorldRaceSystemComponent */
+/* The world entity's handle and the entity table, as 0xeaf5f6 reads them */
+extern uint8_t g_world_ready GAME;
+extern uint32_t g_world_id GAME, g_world_no_id GAME;
+extern char *g_entity_table GAME;
 
 #define TIME_TEMPLATE "[Timer]"
 #define TEXT_TEMPLATE "[LapCounterText]"
@@ -211,6 +217,45 @@ static int is_child(void *parent, void *placeable)
     return 0;
 }
 
+/* The world entity (CWorldEntity), as 0xeaf5f6 finds it: the id's index in the entity table, checked
+ * against the table's generations (u16 index | 0x8000) */
+static void *world(void)
+{
+    uint32_t id = g_world_id;
+    if (!g_world_ready || id == g_world_no_id || !(id & 0x8000) || !g_entity_table) return 0;
+    int i = id & 0x7fff;
+    void *generations = AT(g_entity_table, 0x28, void *);
+    if (i >= count(generations) || AT(generations, 0x20, uint16_t *)[i] != (i | 0x8000)) return 0;
+    return AT(AT(g_entity_table, 0x20, void *), 8 * i, void *);
+}
+
+/* Hides the player's icon below `placeable`: the Racer placeable whose CGuiBehaviorMinimapPlayer
+ * (in _behaviors +0xe8) has the player's kart as _racer (+0x28 handle -> CRacer, +0x20 handle -> kart).
+ * Its content is hidden, not the Racer placeable: the behavior shows that one again every frame. */
+static void hide_icon(void *placeable, int depth)
+{
+    if (!placeable || depth > 24) return;
+    void *behaviors = AT(placeable, 0xe8, void *);
+    for (int i = 0; i < count(behaviors); i++) {
+        void *b = item(behaviors, i);
+        if (!b || AT(b, 0, const void *) != g_minimap_player_vtable) continue;
+        void *racer = handle_object(&AT(b, 0x28, void *));
+        if (racer && handle_object(&AT(racer, 0x20, void *)) == sp.kart && content(placeable))
+            game_set_hidden(content(placeable), 1);
+    }
+    for (int i = 0; i < child_count(placeable); i++) hide_icon(child(placeable, i), depth + 1);
+    hide_icon(content(placeable), depth + 1);
+}
+
+/* The minimap is the world race system's project (+0x90 _minimapHud), not part of the racer HUD */
+static void hide_player_icon(void)
+{
+    void *w = world();
+    void *system = w && g_race_system_meta ? game_find_component(w, g_race_system_meta, 0) : 0;
+    void *project = system ? handle_object(&AT(system, 0x90, void *)) : 0;
+    if (project && sp.kart) hide_icon(AT(project, 0x10, void *), 0);
+}
+
 /* Every frame of a spectator run */
 void hud_frame(void *manager)
 {
@@ -218,6 +263,7 @@ void hud_frame(void *manager)
     void *root = project && AT(project, 0x10, void *) ? content(AT(project, 0x10, void *)) : 0;
     if (!root) return;
     if (root != sp.root || !sp.time_text || !is_child(root, sp.time_text)) build(project, root);
+    hide_player_icon();
     for (int i = 0; i < child_count(root); i++) {
         void *a = asset(child(root, i));
         if (!a || AT(a, 0, const void *) != g_composition_vtable) continue;

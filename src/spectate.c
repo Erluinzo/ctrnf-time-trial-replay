@@ -241,6 +241,23 @@ static void ghost_look(void *manager)
     sp.unghosted = target;
 }
 
+/* The player is not seen: the locked kart, its driver and its child entities (wheels) are not drawn
+ * (igEntity "set hidden" 0x3def00 changes the drawing only; CChildManagerComponent +0x28 handles).
+ * Done every frame, as game code may show them again. The level is loaded again after the run. */
+static void hide_player(void)
+{
+    if (!sp.kart) return;
+    game_set_entity_hidden(sp.kart, 1);
+    void *driver = game_get_driver(sp.kart);
+    if (driver) game_set_entity_hidden(driver, 1);
+    void *children = g_child_manager_meta ? game_find_component(sp.kart, g_child_manager_meta, 0) : 0;
+    void *list = children ? AT(children, 0x28, void *) : 0;
+    for (int i = 0; i < count(list); i++) {
+        void *entity = handle_object(&AT(list, 0x20, void **)[i]);
+        if (entity) game_set_entity_hidden(entity, 1);
+    }
+}
+
 /* Every frame while ghosts play: returns the new ghost play time (the game adds the frame time). */
 float sp_clock(void *manager, float game_time)
 {
@@ -265,6 +282,7 @@ float sp_clock(void *manager, float game_time)
     sp.time = time;
     follow(manager);
     ghost_look(manager);
+    hide_player();
     hud_frame(manager);
     sounds_frame(manager, old, time);
     return time;

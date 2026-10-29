@@ -1,48 +1,46 @@
-# Sounds for the watched ghost: what was tested in game (2026-10-29, 01:30-02:05)
+# Sounds of the watched ghost: findings (2026-10-29, 01:30-03:20, agent alone, owner allowed until 10:00)
 
-Tested by the agent alone (owner allowed until 10:00), Crash Cove, player ghost (Big Norm) + N. Tropy.
-ELF addresses of `CTRNF/out/eboot.elf`. See `kart-events.md` for the research before the tests.
+ELF addresses of `CTRNF/out/eboot.elf`. Research before the tests: `kart-events.md` (parts of it are now known wrong, see below).
 
-## Results
-| Call | Entity | Result |
-|---|---|---|
-| `0x1024340` play by name (whole path) | ghost **driver** (`0xfd3940(kart)`), voice line | **crash** (in the play path, handle resolve 0x149fcbe) |
-| same | ghost **kart**, `GPI_BoostPad_PLR` | **crash** 0x149fcbe |
-| same | ghost kart, `COM_VEH_*` names | no sound found (instance 0), no crash |
-| same | player's kart, `GPI_BoostPad_PLR` | plays (loudness x1.5 in the recording), instance not returned |
-| `0x287780` find sound (lookup only) | ghost kart / player kart / drivers | `GPI_BoostPad_PLR` found for all (global `common_bank`); `COM_VEH_*` and engine names **never found** |
-| same | **ghost driver** | **voice lines found**: `VO2_PLR_Boosting`, `VO1_PLR_BeenHit_Light`, `VO2_PLR_BigAir` (different handle than the player's driver: per-character bank) |
-| lookup on an entity, then `0x1023c90(&inst, entity 0, ghost position, CSound = [handle+0x28], &zero)` | ghost kart, `GPI_BoostPad_PLR` | **works**: instance returned, loudness x1.2. This is the way to play at the ghost's place. |
-| `0x283c10(bank, &igString)` (game's bank search) on the `sys+0xd8` banks | | **crash** in add-ref 0x150a7a5 (lazy bank sort, flag bank+0x2e). Even when only `veh_common*` banks are searched. |
-| own search of `veh_common_bank` (bank+0x18 list, CSound +0x30 name, lower case) then `0x1023c90` at the ghost | `COM_VEH_Hop_Jump_PLR_set` | sound object found, **crash** in the start check 0x2857b0 (+0x1224: loop over `[[rbp-0x70]+0x58]` list, add-ref 0x150a7a0 on a bad item) |
+## How it works now (src/sounds.c, tested in game)
+- **The game already plays every sound of every ghost** (hops, landings, drift loops and charge levels, flame bursts, boost
+  sweeteners, wheelie, brakes, jumps, boost pads, surfaces, under water, engine, voice lines `VO2_NPC_Boosting/BigAir`), but the
+  `_NPC` versions: their mixer channels (`SFX_VERB_NPC`, `SFX_VERB_VEH_NPC`, `VO_VERB_NPC`, group `Veh_npc`/`VO_npc`) are silent in
+  Time Trial. That is why ghosts make no sound (owner: "none of them play automatically").
+- **Hook 0x28a6b0** (lowest play call: `(CSoundInstance **out, CSoundSystem*, igHandle **sound, CEntity*, const float pos[3],
+  xmm0 volume)`; 0xae2fc0 (about 95 callers) and the engine graph modes call it): for the watched ghost's kart or driver
+  (0xfd3940), an `_NPC` CSound is swapped for its `_PLR` twin from the same bank (CSound +0xd8 = its bank, bank +0x18 sounds,
+  +0x30 name). Then the game's own events, rules, cooldowns and variants apply. Not while paused / D-pad scrubbing.
+- **Engine graph**: `CVehicleAudioComponent` (meta slot 0x2adc4e8) +0x79 `_isLocalPlayer` picks the `_PLR` driver list (+0x68)
+  instead of `_NPC` (+0x70); +0x7c wanted volume, +0x88 current. Watched ghost: 1 / volume 1 (0 when paused). Others: keep 1
+  only until +0x88 reaches 0, then 0 (the flag also makes surface sounds `_PLR`; a `_PLR` loop left un-updated drones at its
+  last volume). Ghost engine mode = 0xb24f80 (controller +0x34 set: a velocity-driven mode).
+- **Wall hits**: ghosts have no collisions, so the game has none for them: `wall_hits()` = speed loss > 700 units/s in 0.3 s
+  without brake -> `COM_VEH_Impact_Med/Hard_PLR_set` (from `veh_common_bank`, played with 0x1023c90 at the ghost), then after
+  0.2 s `VO1_PLR_BeenHit_Light` by name on the driver (0x1024340). Tested with a faked stop only (no Crash Cove ghost hits a
+  wall). Owner offered (~03:35) to record a ghost with wall hits, falls, out of bounds: use it to tune / check the wall-hit
+  animation idea (see queued-tasks.md).
 
-## Sound system facts (V = read in memory)
-- `CSoundSystem` = `0x255bd0()`, also the pointer at `[0x2a23300]` (V).
-- `sys+0xd0`: global banks searched by name (only `ui_bank`, `common_bank`) (V).
-- `sys+0xd8`: 30 loaded banks, incl. `veh_common_bank` (188 sounds: hop, land, jump, impact, skid, drift flame burst, brake,
-  sweetener, `com_veh_*_plr_set/_npc_set`), `veh_common_powerups_bank` (134: `pu_turboboost_in_plr`...), char banks, kart banks
-  (`veh_crashkart_bank`, `veh_championkart_bank`: engine loops), level/music banks (V).
-- Name lookup `0x287780`: entity banks via `[sys+0x20]` function (`0xb156e0`), then `sys+0xd0`. It never searches `sys+0xd8` (V).
-- Bank: +0x10 name (lower case), +0x18 list of CSound, +0x2e "sorted" flag. CSound vtable ELF 0x244aa40, +0x30 name, +0x60 list of
-  one sub-sound object (vtable ELF 0x244c5e0) for both a working (`gpi_boostpad_plr`) and a crashing (`com_veh_hop_jump_plr_set`) sound.
-  Why the kart bank sounds crash is not known yet. Ideas: these banks are not "ready" (sorting/initialisation crashes too); the
-  sound needs an entity with the kart's audio setup (the game plays them through the kart's VSC graph with CSound handles in
-  component data, entity = kart, and through `CVehicleAudioComponent`); compare a working `_npc_set` played by the game for AI.
-- Owner: ghost karts play no sounds on their own ("none of them play automatically").
+## Crash cause found (all earlier "crashes" in the play calls)
+The last argument of 0x1024340 / 0x10241f0 / 0x1023c90 is a "finished" delegate of **two handles (16 bytes)** read by 0x263210,
+not an 8-byte slot: passing `&zero8` made the game read stack garbage as the second handle. Pass `void *callback[4] = {0}`.
+Delayed sounds (VO with `_delay`, e.g. Boosting 0.3 s) return no instance but play. Sound clock `[sys+0x210]` = 8192 per s;
+CSound +0x20 `_lastPlayTime` in that clock, +0x84 cooldown s.
+
+## Facts (V = verified in memory/code)
+- `sys+0xd0` global banks (ui, common), `sys+0xd8` all loaded banks; name lookup 0x287780 never searches `sys+0xd8` (V).
+- CSound +0x18 list of instance handles; handle +0x28 -> CSoundInstance; instance +0x18 handle -> +0x28 owner entity, +0x60
+  position, +0x84 module volume (V). Scratchpad `who.py` listed playing sounds by owner.
+- isLocalHero (0x102f6c0, only caller the VSC node 0x10cffe0): actor +0x140 player, player +0x20 <= 7. Used by ~40 scripts
+  (music manager, end race cameras, triggers): not hooked on purpose.
+- Ghost look: VFX only (`common_kart_ghost_timetrial.igz`), removed/spawned again by `CKartEndTemporaryGhostMessage`
+  (factory 0x112da10) / `CKartStartTemporaryGhostMessage` (0x112d8b0) sent with 0xd32160(msg, kart, kart). `_isGhost` is
+  `CKartControllerComponent`+0x260 (not the entity), read by much kart logic: never write it.
 
 ## Audio test setup (careful: owner's speakers, night)
-- The owner had **muted** the game's audio stream. For tests the agent loads a null sink (`pactl load-module module-null-sink
-  sink_name=ctr_test`, module 536870916 on 2026-10-29), moves the game stream there and unmutes it there; records with
-  `parec -d ctr_test.monitor` (`dev/hear.py NAME ENTITY MODE`: triggers 3 times, prints loudness after/before).
-- PipeWire remembers the stream's mute/sink per application: mute the stream **before** closing the game (`dev/relaunch.sh` does),
-  or a new game starts **unmuted on the owner's speakers** (happened once ~01:40 for about a second).
-- Clean up at the end: move the stream back (`pactl move-sink-input <id> 68`, mute it as the owner had it), `pactl unload-module 536870916`.
-
-## Code state (uncommitted test switches, src/sounds.c)
-- `SOUND_TEST_ONLY 1` (automatic events off) and `SOUND_TEST_VOICE 0`: set both back for real use.
-- Test hook (state `test_go/test_entity/test_mode/test_result/test_used/test_name`, `dev/stest.py NAME ENTITY MODE`):
-  entity 0 ghost kart, 1 ghost driver, 2 player kart, 3 player driver; mode 0 play by name, 1 look up only, 2 look up then play at
-  the ghost (entity 0), 3 own `veh_common*` bank search then play at the ghost. Remove before release.
-- `play()` in sounds.c still uses `0x1024340` (crashes on ghost entities): change it to: voice = look up on the ghost driver +
-  `0x1023c90` at the ghost position (works); kart sounds = still open (see above). Common-bank sounds (`GPI_BoostPad_PLR`) work.
-TEST FILE added by the agent 2026-10-29 03:10: mod-state/user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost (remove at cleanup)
+- Game stream on null sink `ctr_test` (module 536870916), recorded with `parec -d ctr_test.monitor`: `dev/lvl.py`,
+  `dev/hear.py`, `dev/phases.py` (one recording, steps 3 s apart). `dev/nomusic.sh` sets music volume 0 (not kept after kill).
+- PipeWire remembers mute/sink per app: mute the stream before closing the game (`dev/relaunch.sh` does).
+- Clean up: stream back to sink 68 muted, `pactl unload-module 536870916`.
+- TEST FILE added 2026-10-29 03:10: `CTRNF/mod-state/user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost` (copy of the
+  owner's export, for the shared ghost test): remove at cleanup.

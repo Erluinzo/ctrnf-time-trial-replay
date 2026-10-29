@@ -14,7 +14,6 @@
 #include "spectate.h"
 
 extern void game_play_sound(void *entity, const char *name, void **instance, void *callback) GAME;
-extern void *game_get_driver(void *kart) GAME;
 extern void *game_sound_system(void) GAME;
 extern void game_play_at(void **instance, void *entity, const float *position, void *sound, void *callback) GAME;
 extern void *game_play_original(void **out, void *system, void **sound, void *entity, const float *position, float volume) GAME;
