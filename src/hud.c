@@ -42,27 +42,26 @@ static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]"};
 
 /* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
  * port's button_prompts.py), each placed by its middle in HUD space, and a D-pad of four game
- * arrows. Pressed buttons are bright and a bit bigger, the others dark. The left stick leans with
- * the steering; buttons a ghost never records (L2, R2, the touchpad, Triangle, Circle, the right
- * stick, D-pad up) stay dark, so the pad looks whole. */
-enum { PAD_L2, PAD_R2, PAD_L1, PAD_R1, PAD_TOUCHPAD, PAD_LEFT_STICK, PAD_RIGHT_STICK, PAD_TRIANGLE,
+ * arrows (steering shows on left / right, reversing on down; the sticks are not shown). Pressed
+ * buttons are bright and a bit bigger, the others dark; buttons a ghost never records (L2, R2, the
+ * touchpad, Triangle, Circle, D-pad up) stay dark, so the pad looks whole. */
+enum { PAD_L2, PAD_R2, PAD_L1, PAD_R1, PAD_TOUCHPAD, PAD_TRIANGLE,
        PAD_SQUARE, PAD_CIRCLE, PAD_CROSS, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_COUNT, PAD_SYMBOLS = PAD_UP };
 static const char PAD_TEXT[PAD_SYMBOLS][4] = {"\xee\x80\x87", "\xee\x80\x88", "\xee\x80\x84", "\xee\x80\x86",
-    "\xee\x80\x92", "\xee\x80\x89", "\xee\x80\x8a", "\xee\x80\x82", "\xee\x80\x83", "\xee\x80\x81", "\xee\x80\x80"};
+    "\xee\x80\x92", "\xee\x80\x82", "\xee\x80\x83", "\xee\x80\x81", "\xee\x80\x80"};
 /* middle x, middle y, and: symbol width in the font's button image (a fraction of it, igCharMetrics)
  * or the arrow's rotation in degrees */
 #define PAD_X 70.0f
 #define PAD_Y 760.0f
 static const float PAD_AT[PAD_COUNT][3] = {
     {60, 30, 0.195f}, {340, 30, 0.195f}, {60, 80, 0.285f}, {340, 80, 0.285f}, {200, 120, 0.18f},
-    {135, 250, 0.164f}, {265, 250, 0.164f}, {340, 130, 0.18f}, {295, 175, 0.18f}, {385, 175, 0.18f},
+    {340, 130, 0.18f}, {295, 175, 0.18f}, {385, 175, 0.18f},
     {340, 220, 0.164f},
-    {60, 140, 180}, {60, 210, 0}, {25, 175, 90}, {95, 175, 270}};
+    {60, 147, 180}, {60, 203, 0}, {32, 175, 90}, {88, 175, 270}};
 #define PAD_SCALE 2.0f
 #define PAD_WIDTH 270.0f        /* HUD pixels per font image width at PAD_SCALE: symbol width = this x fraction */
 #define PRESSED_SCALE 1.2f
-#define ARROW_SCALE 2.6f
-#define STICK_LEAN 22.0f        /* the left stick moves this far at full steering */
+#define ARROW_SCALE 2.0f
 static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150, 255};
 #define DARK_OPACITY 0.45f
 /* The help lines (the button symbols are in the font too) */
@@ -513,15 +512,14 @@ void hud_frame(void *manager)
         game_set_position(sp.help[i], at);
     }
 
-    int bits = inputs(ghost), digital = (int8_t)(bits & 0xff);
-    float steer = digital / 127.0f;
-    for (int i = 0; i < PAD_COUNT; i++)
+    int bits = inputs(ghost);
+    float steer = (int8_t)(bits & 0xff) / 127.0f;
+    for (int i = 0; i < PAD_COUNT; i++) {
         show_button(i, i == PAD_L1 ? bits & IN_SECOND_JUMP : i == PAD_R1 ? bits & IN_FIRST_JUMP
                     : i == PAD_SQUARE ? bits & IN_BRAKE : i == PAD_CROSS ? bits & IN_ACCELERATE
                     : i == PAD_DOWN ? bits & IN_REVERSE
-                    : i == PAD_LEFT ? digital <= -127 : i == PAD_RIGHT ? digital >= 127   /* full: the D-pad */
-                    : i == PAD_LEFT_STICK ? steer > 0.05f || steer < -0.05f : 0,
-                    i == PAD_LEFT_STICK ? steer * STICK_LEAN : 0.0f);
+                    : i == PAD_LEFT ? steer < -0.05f : i == PAD_RIGHT ? steer > 0.05f : 0, 0.0f);
+    }
 }
 
 /* ---- Powerslide and jump meters ----
