@@ -46,7 +46,7 @@ GAME = {
     'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
     'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_racer_manager': 0x2ad4b70, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'g_minimap_player_vtable': 0x2544ea0,
     'g_kart_move_meta': 0x2ac4580, 'g_race_clock_meta': 0x2ad3ec8, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
-    'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78,
+    'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
 }
 
 # (address, original bytes, new instruction, target symbol, padding): each replaces whole instructions
@@ -114,7 +114,7 @@ def run(*command):
 
 def build_code(tmp):
     objects = []
-    for source in ('spectate.c', 'hud.c', 'sounds.c', 'mem.c'):
+    for source in ('spectate.c', 'hud.c', 'sounds.c', 'boosts.c', 'mem.c'):
         obj = tmp / (source + '.o')
         run('gcc', *CFLAGS, '-o', obj, HERE / 'src' / source)
         objects.append(obj)

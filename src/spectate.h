@@ -71,6 +71,7 @@ enum { B_L1, B_R1, B_SQUARE, B_TRIANGLE, B_UP, B_DOWN, B_LEFT, B_RIGHT, B_CIRCLE
 static const uint8_t SIGNALS[B_COUNT] __attribute__((unused)) = {8, 10, 5, 6, 0, 1, 2, 3, 4};
 static const uint8_t DEFAULT_BITS[B_COUNT] __attribute__((unused)) = {11, 13, 8, 6, 14, 15, 17, 16, 5};
 
+#define HISTORY_GHOSTS 8
 struct state {
     int armed;              /* the last start from the ghost menu was L1 */
     int active;             /* this race is a spectator run */
@@ -109,6 +110,14 @@ struct state {
     void *help_arrow[4];    /* D-pad arrows of the help lines (hud.c) */
     int bar_stop;           /* the powerslide meter gets "stop" when the play goes on (hud.c) */
     void *shared_next;      /* g_spectate_kart from the next frame on (hud.c) */
+    /* boosts.c: every ghost kart's boosts over the play time */
+    void *history;
+    int history_length, history_ghosts;
+    int saved_up_to[HISTORY_GHOSTS];    /* last sample saved per ghost, -1 = none */
+    int was_scrubbing;
+    int restore_frames;     /* frames left to restore the saved boosts */
+    int restored_step;      /* history step of the last frame */
+    int kept_n;             /* boost data kept for the history */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
     /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,
@@ -192,6 +201,9 @@ void hud_frame(void *manager);
 void hud_late(void);
 int race_started(void);
 void screen_gui(void *project, int show);
+/* boosts.c */
+void boosts_frame(void *manager, float old, float time);
+void boosts_reset(void);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);
 /* spectate.c */

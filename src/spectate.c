@@ -78,6 +78,7 @@ void sp_menu_spectate(void *behavior, void *placeable)
 void sp_race_start(void *manager, void *racer)
 {
     game_start_recording(manager, racer);
+    boosts_reset();
     /* Time Trial only: the game's mode, as the race tick checks it (0xea2d90) */
     sp.active = sp.armed && manager && g_game && AT(g_game, 0xd4c, int32_t) == 2;
     sp.screen = 0;
@@ -774,6 +775,7 @@ float sp_clock(void *manager, float game_time)
     hide_player();
     carry_player(manager);
     hud_frame(manager);
+    boosts_frame(manager, old, time);
     sounds_frame(manager, old, time);
     return time;
 }
