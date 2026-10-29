@@ -374,7 +374,7 @@ static void ghost_update(void (*update)(void *, void *), void *manager, void *gh
     int on = sp.active && manager == sp.manager;
     if (on && time > ghost_end(ghost)) AT(manager, 0x18, float) = ghost_end(ghost);
     sp.placing = on ? ghost : 0;
-    sp.placing_time = AT(manager, 0x18, float);
+    sp.placing_time = time;     /* past its end: the kart coasts (sp_place_position) */
     update(manager, ghost);
     sp.placing = 0;
     AT(manager, 0x18, float) = time;
@@ -485,6 +485,8 @@ void sp_body_sync(void *entity, const float *position)
     game_set_entity_position(entity, position);
 }
 
+#define COAST 2.0f          /* s a finished ghost's kart takes to stop */
+
 /* Called in place of the game's "set position" and "set angles" when it places a ghost kart (0xfce836,
  * 0xfce997, in 0xfce6a0) */
 void sp_place_position(void *entity, const float *position)
@@ -496,12 +498,24 @@ void sp_place_position(void *entity, const float *position)
     }
     void *list = AT(sp.manager, 0x40, void *);
     int watched = sp.watch < count(list) && item(list, sp.watch) == sp.placing;
-    game_set_entity_position(entity, smooth);
     /* Its speed (+0x60) along the same path: the game's own speed value jumps at the keys. The speed
      * always points forward, as the camera looks along it (backwards while rewinding, it swung to the
      * front of the kart). */
-    if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead))
+    float end = ghost_end(sp.placing), after = sp.placing_time - end;
+    if (after > 0.0f && smooth_pose(sp.placing, end - 0.1f, 0, ahead)) {
+        /* Past its last key (it finished before the others): it coasts on and stops in COAST s */
+        float v[3], left = after < COAST ? 1.0f - after / COAST : 0.0f;
+        float way = (after < COAST ? after : COAST) * (1.0f + left) / 2.0f;    /* s x speed fraction */
+        smooth_pose(sp.placing, end, 0, smooth);
+        for (int i = 0; i < 3; i++) {
+            v[i] = (smooth[i] - ahead[i]) / 0.1f;
+            smooth[i] += v[i] * way;
+            AT(entity, 0x60 + 4 * i, float) = v[i] * left;
+        }
+    } else if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead)) {
         for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = (ahead[i] - smooth[i]) / 0.01f;
+    }
+    game_set_entity_position(entity, smooth);
     if (watched) {      /* for sp_body_sync */
         for (int i = 0; i < 3; i++) sp.placed[i] = smooth[i];
         sp.target_placed = 1;
@@ -536,8 +550,8 @@ void sp_ghost_inputs(void *manager, void *ghost)
         /* A key in the same 1/100 s as the one after it is never in effect in the game's search, e.g.
          * the "start drift" input (bit 13, read at 0xe301b5), which starts a ghost's slide: a third of
          * them were lost, with the slide's boosts (Hot Air Skyway 34.38: no slide, the fire went out).
-         * It is the key in effect for one frame. */
-        if (time >= t1 && t2 <= t1 && time - t1 < SKIP_MAX) {
+         * It is the key in effect for one frame (not the last keys: the final one releases every button). */
+        if (time >= t1 && t2 <= t1 && time - t1 < SKIP_MAX && t1 < ghost_end(ghost)) {
             AT(ghost, 0x44, int32_t) = next;
             return;
         }
@@ -783,10 +797,10 @@ float sp_clock(void *manager, float game_time)
     if (time < old) rewind(manager, time);
     sp.time = time;
     /* The game's own speed (frame times +0x2c _gameSpeed) follows the playback, so animations,
-     * effects and the world stop and change speed with the karts: STOPPED while paused or when the
-     * watched ghost is at its end, the playback speed while playing, x1 while rewinding */
-    void *watched = sp.watch < count(AT(manager, 0x40, void *)) ? item(AT(manager, 0x40, void *), sp.watch) : 0;
-    int stopped = sp.paused || (watched && time >= ghost_end(watched));
+     * effects and the world stop and change speed with the karts: STOPPED while paused or at the end
+     * of the run (a ghost that finished before coasts on), the playback speed while playing, x1 while
+     * rewinding */
+    int stopped = sp.paused || time >= sp.end;
     if (g_frame && !paused) {
         float speed = sp.scrub < 0 ? 1.0f : sp.scrub > 0 ? SCRUB_SPEED : stopped ? STOPPED : SPEEDS[sp.speed];
         AT(g_frame, 0x2c, float) = speed > STOPPED && !started ? 1.0f : speed;
