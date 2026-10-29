@@ -9,6 +9,8 @@ extern void game_set_position(void *placeable, const float *v) GAME;
 extern void game_set_scale(void *placeable, const float *v) GAME;
 extern void game_set_pivot(void *placeable, const float *v) GAME;
 extern void game_set_opacity(void *placeable, float opacity) GAME;
+extern void game_set_rotation(void *placeable, const float *degrees) GAME;     /* +0x78: x, y, z */
+extern void game_set_color(void *placeable, const uint8_t *rgba) GAME;
 extern void game_set_hidden(void *placeable, int hidden) GAME;
 extern void *game_find_driver(void *drivers, const char *name) GAME;   /* CRacerDriverData by _name, or 0 */
 extern void game_hud_set_lap(void *hud, int lap) GAME;
@@ -32,33 +34,43 @@ extern char *g_entity_table GAME;
 #define LAP_TIMER "Lap Timer %"                 /* % = 1..7: the game timer's lap time lines */
 #define TEXT_TEMPLATE "[LapCounterText]"
 #define LABEL_TEMPLATE "Laps Label 1"           /* small text in the lap times: has the button symbols */
-#define BAR_TEMPLATE "[octane_ui_hud_boost_bg.tga]"
-#define FILL_SPRITE "[octane_ui_hud_boost_fill.tga]"
-#define FILL_FULL 2.77f                         /* the game's fill scale for a full classic turbo meter */
-#define BAR_TEXTURE_WIDTH 244.0f                /* children are placed from the bar texture's width */
+#define ARROW_TEMPLATE "[octane_ui_hud_boost_nf_arrow.tga]"   /* a small arrow, pointing down at 0 degrees */
 #define STATUS_BOX 0.11f                        /* see hud_frame */
-#define DIM 0.4f                                /* opacity of a button that is not pressed */
+#define HELP_SCALE 0.55f                        /* the help lines: smaller than the status line */
 /* The Reserves Meter mod's pieces (all its versions): the player's reserves, always 0 here */
 static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]"};
 
 /* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
- * port's button_prompts.py), each placed by its middle in HUD space. The left stick leans with the
- * steering; buttons a ghost never records (L2, R2, the touchpad, Triangle, Circle, the right stick)
- * stay dim, so the pad looks whole. */
+ * port's button_prompts.py), each placed by its middle in HUD space, and a D-pad of four game
+ * arrows. Pressed buttons are bright and a bit bigger, the others dark. The left stick leans with
+ * the steering; buttons a ghost never records (L2, R2, the touchpad, Triangle, Circle, the right
+ * stick, D-pad up) stay dark, so the pad looks whole. */
 enum { PAD_L2, PAD_R2, PAD_L1, PAD_R1, PAD_TOUCHPAD, PAD_LEFT_STICK, PAD_RIGHT_STICK, PAD_TRIANGLE,
-       PAD_SQUARE, PAD_CIRCLE, PAD_CROSS, PAD_COUNT };
-static const char PAD_TEXT[PAD_COUNT][4] = {"\xee\x80\x87", "\xee\x80\x88", "\xee\x80\x84", "\xee\x80\x86",
+       PAD_SQUARE, PAD_CIRCLE, PAD_CROSS, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_COUNT, PAD_SYMBOLS = PAD_UP };
+static const char PAD_TEXT[PAD_SYMBOLS][4] = {"\xee\x80\x87", "\xee\x80\x88", "\xee\x80\x84", "\xee\x80\x86",
     "\xee\x80\x92", "\xee\x80\x89", "\xee\x80\x8a", "\xee\x80\x82", "\xee\x80\x83", "\xee\x80\x81", "\xee\x80\x80"};
-/* middle x, middle y, symbol width in the font's button image (a fraction of it, igCharMetrics) */
+/* middle x, middle y, and: symbol width in the font's button image (a fraction of it, igCharMetrics)
+ * or the arrow's rotation in degrees */
+#define PAD_X 70.0f
+#define PAD_Y 760.0f
 static const float PAD_AT[PAD_COUNT][3] = {
-    {120, 770, 0.195f}, {380, 770, 0.195f}, {120, 830, 0.285f}, {380, 830, 0.285f}, {250, 880, 0.18f},
-    {120, 905, 0.164f}, {305, 990, 0.164f}, {380, 885, 0.18f}, {335, 930, 0.179f}, {425, 930, 0.18f},
-    {380, 975, 0.164f}};
+    {60, 30, 0.195f}, {340, 30, 0.195f}, {60, 80, 0.285f}, {340, 80, 0.285f}, {200, 120, 0.18f},
+    {135, 250, 0.164f}, {265, 250, 0.164f}, {340, 130, 0.18f}, {295, 175, 0.18f}, {385, 175, 0.18f},
+    {340, 220, 0.164f},
+    {60, 140, 180}, {60, 210, 0}, {25, 175, 90}, {95, 175, 270}};
 #define PAD_SCALE 2.0f
 #define PAD_WIDTH 270.0f        /* HUD pixels per font image width at PAD_SCALE: symbol width = this x fraction */
+#define PRESSED_SCALE 1.2f
+#define ARROW_SCALE 2.6f
 #define STICK_LEAN 22.0f        /* the left stick moves this far at full steering */
-#define STEER_X 250.0f
-#define STEER_Y 1040.0f
+static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150, 255};
+#define DARK_OPACITY 0.45f
+/* The help lines (the button symbols are in the font too) */
+static const char HELP[5][48] = {"\xee\x80\x83 PAUSE", "D-PAD LEFT / RIGHT: REWIND / FORWARD",
+    "D-PAD UP / DOWN: SPEED", "\xee\x80\x84 / \xee\x80\x86: OTHER GHOST", "\xee\x80\x82 HIDE CONTROLLER"};
+#define HELP_Y 520.0f
+#define HELP_STEP 34.0f
+
 /* CGhostSnapshotKey bits: 0-7 steering (s8), 8 accelerate, 9 reverse, 10 brake, 11 first jump,
  * 12 second jump, 13 start drift, 14 race start */
 #define IN_ACCELERATE 0x100
@@ -155,26 +167,9 @@ static void *timer_content(void *root)
     return 0;
 }
 
-/* The spectator buttons in the HUD's button legend (the bar the menus use; EButtonLegendButton) */
-static const struct { int button; char text[32]; } LEGEND[] = {
-    {3, "PAUSE"}, {11, "REWIND / FORWARD / SPEED"}, {4, "CONTROLLER"}, {5, "PREVIOUS GHOST"}, {6, "NEXT GHOST"},
-};
-
-static void legend(void *project, void *manager)
-{
-    int ghosts = count(AT(manager, 0x40, void *));
-    for (int i = 0; i < (int)(sizeof LEGEND / sizeof *LEGEND); i++) {
-        if (LEGEND[i].button >= 5 && ghosts < 2) continue;      /* L1/R1 only with ghosts to switch to */
-        char *text = game_string(g_string_pool, LEGEND[i].text);
-        game_legend_add(project, LEGEND[i].button, &text, 1);
-        game_string_release(g_string_pool, text - 0x10);
-    }
-}
-
 static void build(void *project, void *root)
 {
     sp.root = root;
-    legend(project, sp.manager);
     /* The game's script writes its own current lap line every frame (from lap times it gets only in a
      * real race), so the lap lines shown are copies, at the same place; the game's stay hidden */
     void *timer = timer_content(root);
@@ -185,37 +180,52 @@ static void build(void *project, void *root)
     }
     sp.status_text = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, 700.0f);   /* above the controller */
     if (sp.status_text) sp.status_extent = AT(sp.status_text, 0x90, float);
-    void *label = find(root, LABEL_TEMPLATE, 0, 0);
+    void *label = find(root, LABEL_TEMPLATE, 0, 0), *arrow = find(root, ARROW_TEMPLATE, 1, 0);
     for (int i = 0; i < PAD_COUNT; i++) {
-        sp.pad[i] = text_piece(project, label, root, PAD_AT[i][0] - PAD_AT[i][2] * PAD_WIDTH / 2, PAD_AT[i][1]);
-        if (!sp.pad[i]) continue;
-        game_set_text(sp.pad[i], PAD_TEXT[i]);
-        float scale[3] = {PAD_SCALE, PAD_SCALE, 1.0f};
-        game_set_scale(sp.pad[i], scale);
+        float x = PAD_X + PAD_AT[i][0], y = PAD_Y + PAD_AT[i][1];
+        if (i < PAD_SYMBOLS) {
+            sp.pad[i] = text_piece(project, label, root, x - PAD_AT[i][2] * PAD_WIDTH / 2, y);
+            if (sp.pad[i]) game_set_text(sp.pad[i], PAD_TEXT[i]);
+            continue;
+        }
+        void *piece = sp.pad[i] = copy(project, arrow, root);      /* D-pad: an arrow by its middle */
+        if (!piece) continue;
+        AT(piece, 0xa0, int32_t) = AT(piece, 0xa4, int32_t) = 0;
+        float pivot[3] = {0.5f, 0.5f, 0.5f}, position[3] = {x, y, 0.0f}, turn[3] = {0.0f, 0.0f, PAD_AT[i][2]};
+        game_set_pivot(piece, pivot);
+        game_set_position(piece, position);
+        game_set_rotation(piece, turn);
     }
-    /* Steering: a classic turbo meter whose fill grows from the middle to the side of the turn */
-    sp.steer_bar = copy(project, find(root, BAR_TEMPLATE, 1, 0), root);
-    sp.steer_fill = sp.steer_bar ? find(sp.steer_bar, FILL_SPRITE, 1, 0) : 0;
-    if (sp.steer_bar) {
-        float bar[3] = {STEER_X - AT(root, 0x90, float) / 2, STEER_Y - AT(root, 0x94, float) / 2, 0.0f};
-        game_set_position(sp.steer_bar, bar);   /* placed from the root's middle (anchor 2) */
+    for (int i = 0; i < 5; i++) {
+        sp.help[i] = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, HELP_Y + HELP_STEP * i);
+        if (!sp.help[i]) continue;
+        float scale[3] = {HELP_SCALE, HELP_SCALE, 1.0f};
+        game_set_scale(sp.help[i], scale);
+        int n = 0;
+        while (HELP[i][n]) n++;
+        AT(sp.help[i], 0x90, float) = sp.status_extent * STATUS_BOX * (float)n;   /* see hud_frame */
+        game_set_text(sp.help[i], HELP[i]);
     }
-    /* The game's fill has its pivot on its right end: a full fill spans [x - width, x] */
-    if (sp.steer_fill)
-        sp.steer_center = AT(sp.steer_fill, 0x60, float) - AT(sp.steer_fill, 0x90, float) * FILL_FULL / 2;
 }
 
-/* The fill from the middle of the bar: steer -1 (full left) to 1 (full right) */
-static void show_steering(float steer)
+/* A controller piece pressed (bright, a bit bigger) or not (dark); x: the left stick's lean */
+static void show_button(int i, int pressed, float x)
 {
-    void *fill = sp.steer_fill;
-    if (!fill) return;
-    float pivot[3] = {steer < 0 ? 1.0f : 0.0f, AT(fill, 0x70, float), AT(fill, 0x74, float)};
-    float position[3] = {sp.steer_center, AT(fill, 0x64, float), AT(fill, 0x68, float)};
-    float scale[3] = {FILL_FULL * (steer < 0 ? -steer : steer) / 2, AT(fill, 0x88, float), AT(fill, 0x8c, float)};
-    game_set_pivot(fill, pivot);
-    game_set_position(fill, position);
-    game_set_scale(fill, scale);
+    void *piece = sp.pad[i];
+    if (!piece) return;
+    float size = pressed ? PRESSED_SCALE : 1.0f;
+    game_set_hidden(piece, !sp.show_pad);
+    game_set_opacity(piece, pressed ? 1.0f : DARK_OPACITY);
+    game_set_color(piece, pressed ? BRIGHT : DARK);
+    if (i >= PAD_SYMBOLS) {
+        float scale[3] = {ARROW_SCALE * size, ARROW_SCALE * size, 1.0f};
+        game_set_scale(piece, scale);
+        return;
+    }
+    float scale[3] = {PAD_SCALE * size, PAD_SCALE * size, 1.0f};
+    float position[3] = {PAD_X + PAD_AT[i][0] + x - PAD_AT[i][2] * PAD_WIDTH * size / 2, PAD_Y + PAD_AT[i][1], 0.0f};
+    game_set_scale(piece, scale);
+    game_set_position(piece, position);
 }
 
 static char *put(char *at, const char *text)
@@ -481,8 +491,12 @@ void hud_frame(void *manager)
         at = put_number(at, count(list), 1);
         at = put(at, "  ");
     }
+    /* the speed only for a moment after a change; pause, rewind and forward while they last */
     static const char SPEED_TEXT[][8] = {"x0.1", "x0.5", "x1", "x2", "x3", "x4"};
-    at = put(at, sp.scrub < 0 ? "REWIND x4" : sp.scrub > 0 ? "FORWARD x4" : sp.paused ? "PAUSED" : SPEED_TEXT[sp.speed]);   /* the font has no < > */
+    float dt = g_frame ? AT(g_frame, 0x18, float) : 0.0f;
+    if (sp.speed_shown > 0.0f) sp.speed_shown -= dt > 0.1f ? 0.1f : dt;
+    at = put(at, sp.scrub < 0 ? "REWIND x4" : sp.scrub > 0 ? "FORWARD x4" : sp.paused ? "PAUSED"   /* the font has no < > */
+                 : sp.speed_shown > 0.0f ? SPEED_TEXT[sp.speed] : "");
     *at = 0;
     /* The text is right-aligned in its box and shrinks when it does not fit (the template's asset, shared
      * with the game's lap counter, sets this): the box gets about the width of this text, so the line
@@ -491,24 +505,23 @@ void hud_frame(void *manager)
         AT(sp.status_text, 0x90, float) = sp.status_extent * STATUS_BOX * (float)(at - text);
         game_set_text(sp.status_text, text);
     }
+    for (int i = 0, line = 0; i < 5; i++) {     /* "OTHER GHOST" only with ghosts to switch to */
+        int hidden = !sp.show_pad || (i == 3 && count(list) < 2);
+        if (!sp.help[i]) continue;
+        game_set_hidden(sp.help[i], hidden);
+        float at[3] = {60.0f, HELP_Y + HELP_STEP * (line += !hidden) - HELP_STEP, 0.0f};
+        game_set_position(sp.help[i], at);
+    }
 
-    int bits = inputs(ghost);
-    float steer = (int8_t)(bits & 0xff) / 127.0f;
-    for (int i = 0; i < PAD_COUNT; i++) {
-        if (!sp.pad[i]) continue;
-        int pressed = i == PAD_L1 ? bits & IN_SECOND_JUMP : i == PAD_R1 ? bits & IN_FIRST_JUMP
-                    : i == PAD_SQUARE ? bits & (IN_BRAKE | IN_REVERSE) : i == PAD_CROSS ? bits & IN_ACCELERATE
-                    : i == PAD_LEFT_STICK ? steer > 0.05f || steer < -0.05f : 0;
-        game_set_hidden(sp.pad[i], !sp.show_pad);
-        game_set_opacity(sp.pad[i], pressed ? 1.0f : DIM);
-    }
-    if (sp.pad[PAD_LEFT_STICK]) {
-        float at[3] = {PAD_AT[PAD_LEFT_STICK][0] - PAD_AT[PAD_LEFT_STICK][2] * PAD_WIDTH / 2 + steer * STICK_LEAN,
-                       PAD_AT[PAD_LEFT_STICK][1], 0.0f};
-        game_set_position(sp.pad[PAD_LEFT_STICK], at);
-    }
-    if (sp.steer_bar) game_set_hidden(sp.steer_bar, !sp.show_pad);
-    show_steering(steer);
+    int bits = inputs(ghost), digital = (int8_t)(bits & 0xff);
+    float steer = digital / 127.0f;
+    for (int i = 0; i < PAD_COUNT; i++)
+        show_button(i, i == PAD_L1 ? bits & IN_SECOND_JUMP : i == PAD_R1 ? bits & IN_FIRST_JUMP
+                    : i == PAD_SQUARE ? bits & IN_BRAKE : i == PAD_CROSS ? bits & IN_ACCELERATE
+                    : i == PAD_DOWN ? bits & IN_REVERSE
+                    : i == PAD_LEFT ? digital <= -127 : i == PAD_RIGHT ? digital >= 127   /* full: the D-pad */
+                    : i == PAD_LEFT_STICK ? steer > 0.05f || steer < -0.05f : 0,
+                    i == PAD_LEFT_STICK ? steer * STICK_LEAN : 0.0f);
 }
 
 /* ---- Powerslide and jump meters ----

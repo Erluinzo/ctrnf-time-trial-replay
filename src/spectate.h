@@ -80,8 +80,9 @@ struct state {
     float go;               /* the watched ghost's race start (its raceStart input), s */
     int go_watch;           /* the ghost go belongs to, -1 = none yet */
     void *root;             /* HUD root our pieces were added to (only compared) */
-    void *time_text, *status_text, *steer_bar, *steer_fill;
-    float steer_center;     /* x of the steering bar's middle, in the fill's parent */
+    void *status_text;
+    void *help[5];          /* lines that explain the spectator buttons */
+    float speed_shown;      /* s left to show the playback speed after a change */
     /* Sounds (sounds.c), in ghost time */
     float heard;            /* wall hits up to this time were checked */
     int heard_watch;        /* for this ghost; -1 = none */
@@ -91,7 +92,7 @@ struct state {
     /* Last wall-hit sounds (tools/sounds.py): name, ghost time, instance or 0 */
     int log_n;
     struct { const char *name; float at; int ok; } log[16];
-    void *pad[11];          /* virtual controller buttons (hud.c) */
+    void *pad[15];          /* virtual controller buttons and D-pad arrows (hud.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
     /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,
@@ -117,8 +118,8 @@ struct state {
     const char *debug_names[32];
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
-_Static_assert(__builtin_offsetof(struct state, heard) == 180 && __builtin_offsetof(struct state, sounds_played) == 196
-               && __builtin_offsetof(struct state, log_n) == 200 && __builtin_offsetof(struct state, log) == 208,
+_Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212
+               && __builtin_offsetof(struct state, log_n) == 216 && __builtin_offsetof(struct state, log) == 224,
                "tools/peek.py and tools/sounds.py read these offsets");
 extern struct state sp GAME;
 

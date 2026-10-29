@@ -294,6 +294,7 @@ static void read_buttons(void *manager)
     if (PRESSED(B_TRIANGLE)) sp.show_pad = !sp.show_pad;
     if (PRESSED(B_UP) && sp.speed < SPEED_COUNT - 1) sp.speed++;
     if (PRESSED(B_DOWN) && sp.speed > 0) sp.speed--;
+    if (PRESSED(B_UP) || PRESSED(B_DOWN)) sp.speed_shown = 2.0f;     /* the HUD shows it for 2 s */
     sp.scrub = (int)HELD(B_RIGHT) - (int)HELD(B_LEFT);
 }
 

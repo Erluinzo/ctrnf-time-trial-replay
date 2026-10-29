@@ -34,9 +34,9 @@ def main():
             sys.exit('game image not found')
         mem.seek(base + STATE)
         v = LAYOUT.unpack(mem.read(LAYOUT.size))
-        mem.seek(base + STATE + 180)
-        heard, heard_watch = struct.unpack('<fi', mem.read(8))
         mem.seek(base + STATE + 196)
+        heard, heard_watch = struct.unpack('<fi', mem.read(8))
+        mem.seek(base + STATE + 212)
         played = struct.unpack('<i', mem.read(4))[0]
     (armed, active, set_up, paused, speed, scrub, time, end, watch, ghosts, buttons,
      manager, kart, lock, hud, camera, target, *rest) = v

@@ -32,7 +32,7 @@ GAME = {
     'game_ghost_look_end_new': 0x112da10, 'game_ghost_look_start_new': 0x112d8b0, 'game_send_message': 0xd32160,
     'game_set_entity_hidden': 0x3def00, 'game_find_driver': 0xf9c610,
     'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_position': 0x268f90,
-    'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
+    'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
     'game_set_entity_position': 0x3dc8e0, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
