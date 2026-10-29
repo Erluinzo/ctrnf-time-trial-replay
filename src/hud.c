@@ -68,9 +68,16 @@ static const float PAD_AT[PAD_COUNT][3] = {
 #define ARROW_SCALE 2.0f
 static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150, 255};
 #define DARK_OPACITY 0.45f
-/* The help lines (the button symbols are in the font too) */
-static const char HELP[4][48] = {"\xee\x80\x83 PAUSE", "D-PAD LEFT / RIGHT: REWIND / FORWARD",
-    "D-PAD UP / DOWN: SPEED", "\xee\x80\x84 / \xee\x80\x86: OTHER GHOST"};
+/* The help lines (the button symbols are in the font too, but not the D-pad: its arrows are drawn over
+ * the spaces at the start of lines 1 and 2) */
+static const char HELP[4][48] = {"\xee\x80\x83 : PAUSE", "     /       : REWIND / FORWARD",
+    "     /       : SPEED", "\xee\x80\x84 / \xee\x80\x86 : OTHER GHOST"};
+/* Help arrows: line, x, y change, rotation (as the controller's); the up arrow's image sits low */
+static const float HELP_ARROW[4][4] = {{1, 75, 0, 90}, {1, 121, 0, 270}, {2, 74, -2, 180}, {2, 121, 0, 0}};
+#define HELP_ARROW_SCALE 0.7f
+/* Box width change per help line: the box only guesses the text's width (see hud_frame), so the
+ * spaces under the arrows move with each line's letters; measured in game */
+static const float HELP_BOX_FIX[4] = {0, 0, -34, 0};
 #define HELP_Y 556.0f
 #define HELP_STEP 34.0f
 
@@ -206,8 +213,20 @@ static void build(void *project, void *root)
         game_set_scale(sp.help[i], scale);
         int n = 0;
         while (HELP[i][n]) n++;
-        AT(sp.help[i], 0x90, float) = sp.status_extent * STATUS_BOX * (float)n;   /* see hud_frame */
+        AT(sp.help[i], 0x90, float) = sp.status_extent * STATUS_BOX * (float)n + HELP_BOX_FIX[i];   /* see hud_frame */
         game_set_text(sp.help[i], HELP[i]);
+    }
+    for (int i = 0; i < 4; i++) {
+        void *piece = sp.help_arrow[i] = copy(project, arrow, root);
+        if (!piece) continue;
+        AT(piece, 0xa0, int32_t) = AT(piece, 0xa4, int32_t) = 0;
+        float pivot[3] = {0.5f, 0.5f, 0.5f}, turn[3] = {0.0f, 0.0f, HELP_ARROW[i][3]};
+        float scale[3] = {HELP_ARROW_SCALE, HELP_ARROW_SCALE, 1.0f};       /* placed in hud_frame */
+        game_set_pivot(piece, pivot);
+        game_set_rotation(piece, turn);
+        game_set_scale(piece, scale);
+        game_set_color(piece, BRIGHT);
+        game_set_opacity(piece, 1.0f);
     }
 }
 
@@ -494,10 +513,6 @@ void hud_frame(void *manager)
     if (root != sp.root || !sp.status_text || !is_child(root, sp.status_text)) build(project, root);
     hide_player_icon();
     for (int i = 0; i < child_count(root); i++) {
-        void *a = asset(child(root, i));
-        /* "WRONG WAY": the player's hidden kart is moved with the ghost (spectate.c) */
-        if (a && AT(a, 0, const void *) == g_composition_vtable && same_text(AT(a, 0x10, const char *), "Octane_RacerHud_WrongWay"))
-            game_set_hidden(child(root, i), 1);
         for (int h = 0; h < (int)(sizeof HIDE_PIECES / sizeof *HIDE_PIECES); h++)
             if (same_text(AT(child(root, i), 0x28, const char *), HIDE_PIECES[h])) game_set_hidden(child(root, i), 1);
     }
@@ -562,12 +577,20 @@ void hud_frame(void *manager)
         AT(sp.status_text, 0x90, float) = sp.status_extent * STATUS_BOX * (float)(at - text);
         game_set_text(sp.status_text, text);
     }
-    for (int i = 0, line = 0; i < 4; i++) {     /* "OTHER GHOST" only with ghosts to switch to */
-        int hidden = i == 3 && count(list) < 2;
+    /* "OTHER GHOST" only with ghosts to switch to; without it the lines move down one line, so the
+     * last one stays just above the status line */
+    int one = count(list) < 2;
+    float top = HELP_Y + (one ? HELP_STEP : 0.0f);
+    for (int i = 0; i < 4; i++) {
         if (!sp.help[i]) continue;
-        game_set_hidden(sp.help[i], hidden);
-        float at[3] = {60.0f, HELP_Y + HELP_STEP * (line += !hidden) - HELP_STEP, 0.0f};
+        game_set_hidden(sp.help[i], i == 3 && one);
+        float at[3] = {60.0f, top + HELP_STEP * i, 0.0f};
         game_set_position(sp.help[i], at);
+    }
+    for (int i = 0; i < 4; i++) {
+        if (!sp.help_arrow[i]) continue;
+        float at[3] = {HELP_ARROW[i][1], top + HELP_STEP * HELP_ARROW[i][0] + HELP_ARROW[i][2], 0.0f};
+        game_set_position(sp.help_arrow[i], at);
     }
 
     int bits = inputs(ghost);

@@ -37,6 +37,7 @@ extern void game_racer_finished(void *system, void *racer) GAME;
 extern void game_kart_immobile(void *kart, int flag) GAME;  /* setImmobileBehavior_VSC */
 extern void *game_rumble_original(void *a, void *b, int c, void *d, void *e, void *f) GAME;    /* hooks.s */
 extern void game_respawn_original(void *component, int kind, void *at) GAME;  /* hooks.s */
+extern void game_wrong_way(void *hud, int on) GAME;
 extern void game_turbo_start(void *turbo) GAME;     /* GO: the start boost if charged (CKartTurboStart) */
 extern char *game_kart_settings(void) GAME;         /* +0x100 start boost settings */
 extern void game_pad_boost(void **out, void *controller, void **material) GAME;    /* 0 if no pad */
@@ -105,6 +106,7 @@ struct state {
     int log_n;
     struct { const char *name; float at; int ok; } log[16];
     void *pad[15];          /* virtual controller buttons and D-pad arrows (hud.c) */
+    void *help_arrow[4];    /* D-pad arrows of the help lines (hud.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
     /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,

@@ -35,7 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_wrong_way': 0xe49210, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -75,6 +75,7 @@ HOOKS = [
     (0xe32bad, 'e8de935aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost (its rating)
     (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
     (0xf350b8, 'e9f3000000', 'e9', 'sp_player_finished', 0),               # the player finishes the race
+    (0xe48f07, 'e804030000', 'e8', 'sp_wrong_way', 0),                     # the HUD's WRONG WAY on or off
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
     (0x1041ca0, '554889e55350', 'e9', 'sp_speed_ratio', 1),                # the HUD reads a kart's speed ratio
     (0x1041ce0, '554889e54157', 'e9', 'sp_forward_speed', 1),              # and its speed (speedometer)
