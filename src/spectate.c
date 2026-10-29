@@ -460,6 +460,12 @@ void sp_place_position(void *entity, const float *position)
     float smooth[3];
     if (sp.placing && smooth_pose(sp.placing, sp.placing_time, 0, smooth)) position = smooth;
     game_set_entity_position(entity, position);
+    void *list = sp.placing ? AT(sp.manager, 0x40, void *) : 0;
+    if (list && sp.watch < count(list) && item(list, sp.watch) == sp.placing) {    /* DEBUG log */
+        float *row = sp.place_log[sp.place_n % 24];
+        row[0] = sp.placing_time, row[1] = position[0], row[2] = position[1], row[3] = position[2];
+        sp.place_n++;
+    }
 }
 
 void sp_place_angles(void *entity, const float *angles, int zero)
@@ -549,23 +555,21 @@ static void hide_player(void)
 }
 
 /* The level's triggers show parts of the track (e.g. Electron Avenue's road) as the player's kart
- * comes near, so the hidden kart goes with the watched ghost. It makes no sound (sounds.c), its
- * engine is silent, and its laps and race end are ignored (sp_player_lap, sp_player_finished). */
-#define CARRY_HEIGHT 800.0f
+ * comes near, so the hidden kart goes along the watched ghost's own path, CARRY_BEHIND s earlier:
+ * always on the track (never respawned), behind the camera, near enough for the triggers. It does
+ * not move by itself (immobile, speed 0, air time 0), makes no sound (sounds.c), and its laps, race
+ * end and "wrong way" are ignored (sp_player_lap, sp_player_finished, hud.c). */
+#define CARRY_BEHIND 0.6f
 static void carry_player(void *manager)
 {
     void *list = AT(manager, 0x40, void *);
-    void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
-    if (!kart || !sp.kart) return;
-    /* above the ghost: inside the level's large trigger zones, but off the road, so boost pads,
-     * landings and the ground give it no flames and no controller vibration */
-    float above[3] = {AT(kart, 0x20, float), AT(kart, 0x24, float), AT(kart, 0x28, float) + CARRY_HEIGHT};
-    game_set_entity_position(sp.kart, above);
-    AT(sp.kart, 0x60, float) = AT(sp.kart, 0x64, float) = AT(sp.kart, 0x68, float) = 0.0f;  /* its speed: no falling */
-    /* not falling: no air time (its wheel flames) and no speed (CKartMove... +0x248 air time,
-     * the kart is immobile from set_up, as the game's scripts make karts stand still) */
+    void *ghost = sp.watch < count(list) ? item(list, sp.watch) : 0;
+    float at[3];
+    if (!ghost || !sp.kart || !smooth_pose(ghost, sp.time - CARRY_BEHIND, 0, at)) return;
+    game_set_entity_position(sp.kart, at);
+    AT(sp.kart, 0x60, float) = AT(sp.kart, 0x64, float) = AT(sp.kart, 0x68, float) = 0.0f;
     void *move = g_kart_move_meta ? game_find_component(sp.kart, g_kart_move_meta, 0) : 0;
-    if (move) AT(move, 0x248, float) = 0.0f;
+    if (move) AT(move, 0x248, float) = 0.0f;       /* air time: no wheel flames */
     void *audio = g_vehicle_audio_meta ? game_find_component(sp.kart, g_vehicle_audio_meta, 0) : 0;
     if (audio) AT(audio, 0x7c, float) = 0.0f;      /* the engine's wanted volume */
 }

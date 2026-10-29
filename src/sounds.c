@@ -190,7 +190,7 @@ static void *plr_twin(void *sound)
 void *sp_play(void **out, void *system, void **sound, void *entity, const float *position, float volume)
 {
     void *debug = handle_object(sound);
-    if (debug) sp.debug_names[sp.debug_n++ & 31] = AT(debug, 0x30, const char *);
+    if (debug) sp.debug_names[sp.debug_n++ & 7] = AT(debug, 0x30, const char *);
     /* the character screen's countdown ticks (spectate.c presses Ready until it runs) */
     if (sp.screen && debug && same_name(AT(debug, 0x30, const char *), "ui_customization_countdown"))
         sp.countdown_ticks++;

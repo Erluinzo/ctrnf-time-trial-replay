@@ -122,7 +122,9 @@ struct state {
     void *debug_drift_kart;
     int debug_focus;        /* DEBUG: ghost menu focus gains while sp.screen */
     int debug_n;            /* DEBUG: names of the last sounds started (tools) */
-    const char *debug_names[32];
+    const char *debug_names[8];
+    int place_n;            /* DEBUG: placements of the watched ghost logged */
+    float place_log[24][4]; /* DEBUG: time, x, y, z of each */
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212
