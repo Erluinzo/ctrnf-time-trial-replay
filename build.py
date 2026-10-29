@@ -35,7 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_camera_contacts_continue': 0xc8b166, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -65,6 +65,7 @@ HOOKS = [
     (0xc04ed0, '554889e54157', 'e9', 'sp_rumble', 1),                      # a controller rumble starts
     (0xe7dd00, '554889e54157', 'e9', 'sp_respawn', 1),                     # a kart is respawned
     (0xe56595, 'e8860b0000', 'e8', 'sp_pad_boost', 0),                     # a kart gets a boost pad's boost
+    (0xc8b160, '554889e54157', 'e9', 'sp_camera_contacts', 1),             # the race camera's collisions
     (0xeb6a37, 'e83461fcff', 'e8', 'sp_turbo_start', 0),                   # GO: a kart's start boost
     (0xe437b0, '554889e54157', 'e9', 'sp_boost_update', 1),                # the HUD starts its meter update
     (0xe32826, 'e865975aff', 'e8', 'sp_kart_hud', 0),                      # a slide starts: the kart's HUD

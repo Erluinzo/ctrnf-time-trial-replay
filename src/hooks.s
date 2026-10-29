@@ -200,3 +200,11 @@ game_speed_ratio_original:
     push rbx
     push rax
     jmp game_speed_ratio_continue
+
+# 0xc8b160 (kart camera, contacts, count): the camera's collisions: same, for sp_camera_contacts.
+    .globl game_camera_contacts_original
+game_camera_contacts_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_camera_contacts_continue

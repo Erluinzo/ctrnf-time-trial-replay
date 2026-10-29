@@ -669,6 +669,15 @@ void sp_pad_boost(void **out, void *controller, void **material)
     if (watched && *out) sp.pad_at = sp.time;
 }
 
+/* Called in place of the kart camera's collision handling (0xc8b160): on Electron Avenue the camera
+ * hits an overhead sign (2:51.9 and 1:48.6, ghost time 175.6 and 112.5) and ends inside the ghost's kart
+ * for a moment. The spectator's camera ignores collisions (in a whole run they happen only there). */
+void sp_camera_contacts(void *camera, void **contacts, int n)
+{
+    if (sp.active && camera == sp.camera) return;
+    game_camera_contacts_original(camera, contacts, n);
+}
+
 /* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"
  * (0xf350b8): in a spectator run the HUD shows the ghost's laps and the player never finishes */
 void sp_player_lap(void *hud, int lap)
@@ -725,4 +734,3 @@ float sp_clock(void *manager, float game_time)
     sounds_frame(manager, old, time);
     return time;
 }
-
