@@ -17,6 +17,8 @@ extern void game_hud_set_lap(void *hud, int lap) GAME;
 extern void game_hud_bar(void *hud, int style) GAME;
 extern void *g_race_clock_meta GAME;    /* CRaceClockComponent (world entity): +0x28 _raceTimer */
 static float ghost_end_time(void *ghost);
+static float drift_ratio(void *ghost, float t);
+static void slide_meter(void *root, float ratio);
 static void *world(void);
 static void *watched_ghost(void);
 extern void game_drift_ratio_original(void *kart, float *ratio) GAME;          /* hooks.s */
@@ -545,6 +547,7 @@ void hud_frame(void *manager)
         game_set_position(sp.help[i], at);
     }
 
+    slide_meter(root, drift_ratio(ghost, sp.time));
     int bits = inputs(ghost);
     float steer = (int8_t)(bits & 0xff) / 127.0f;
     for (int i = 0; i < PAD_COUNT; i++) {
@@ -651,6 +654,33 @@ void sp_hud_bar(void *hud, int style)
     AT(hud, 0x18, void *) = kart;
     game_hud_bar(hud, style);
     AT(hud, 0x18, void *) = own;
+}
+
+/* The powerslide meter shows the watched ghost's slide: its bar script fills it only on the HUD
+ * kart's own slide events, which a ghost kart does not send. As the game moves them (measured in a
+ * normal race): Nitro Fueled bar, BoostMask x from -386 (empty) and the fill inside it the other way
+ * from 410, by 410 x ratio; Classic bar, the fill's x scale up to 2.77. */
+#define NF_MASK_EMPTY -386.0f
+#define NF_FILL_EMPTY 410.0f
+#define CLASSIC_FULL 2.77f
+static void slide_meter(void *root, float ratio)
+{
+    void *bar = find(root, "Octane_NFBoostBar", 1, 0);
+    void *mask = bar ? find(bar, "BoostMask", 1, 0) : 0;
+    void *fill = mask ? find(mask, "[octane_ui_hud_boost_nf_fill.tga]", 1, 0) : 0;
+    if (fill) {
+        float k = NF_FILL_EMPTY * ratio, at[3] = {NF_MASK_EMPTY + k, AT(mask, 0x64, float), 0.0f};
+        game_set_position(mask, at);
+        at[0] = NF_FILL_EMPTY - k;
+        at[1] = AT(fill, 0x64, float);
+        game_set_position(fill, at);
+    }
+    bar = find(root, "Octane_BoostBar", 1, 0);
+    fill = bar ? find(bar, "[octane_ui_hud_boost_fill.tga]", 1, 0) : 0;
+    if (fill) {
+        float scale[3] = {CLASSIC_FULL * ratio, AT(fill, 0x88, float), AT(fill, 0x8c, float)};
+        game_set_scale(fill, scale);
+    }
 }
 
 /* Called in place of the game's powerslide meter value (0x1041c60) */
