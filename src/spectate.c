@@ -628,6 +628,29 @@ void sp_respawn(void *component, int kind, void *at)
     game_respawn_original(component, kind, at);
 }
 
+/* Called in place of the game's start boost at GO (0xeb6a37). A kart charges it by pressing accelerate
+ * in the countdown (0xe7cd90: +0x24 charge, +0x20 level), but ghost files keep no input before GO, so
+ * a ghost kart never gets it. A ghost that started with one moved fast at once (measured: about 700
+ * units in the first 0.5 s, about 200 without): those get it here. The level (how full the turbo bar
+ * is) cannot be told from the file: the best one. */
+#define START_BOOST_MOVE 400.0f
+void sp_turbo_start(void *turbo)
+{
+    void *list = sp.active && sp.manager && turbo ? AT(sp.manager, 0x40, void *) : 0;
+    char *settings = list ? AT(game_kart_settings(), 0x100, char *) : 0;
+    float a[3], b[3];
+    for (int i = 0; settings && i < count(list); i++) {
+        void *ghost = item(list, i);
+        if (ghost_kart(ghost) != AT(turbo, 0x10, void *) || !smooth_pose(ghost, sp.time, 0, a)
+            || !smooth_pose(ghost, sp.time + 0.5f, 0, b)) continue;
+        float dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+        if (dx * dx + dy * dy + dz * dz < START_BOOST_MOVE * START_BOOST_MOVE) continue;
+        AT(turbo, 0x20, int32_t) = count(AT(settings, 0x10, void *)) - 1;
+        AT(turbo, 0x24, float) = AT(settings, 0x18, float) + 1.0f;    /* above the threshold */
+    }
+    game_turbo_start(turbo);
+}
+
 /* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"
  * (0xf350b8): in a spectator run the HUD shows the ghost's laps and the player never finishes */
 void sp_player_lap(void *hud, int lap)
@@ -684,3 +707,4 @@ float sp_clock(void *manager, float game_time)
     sounds_frame(manager, old, time);
     return time;
 }
+

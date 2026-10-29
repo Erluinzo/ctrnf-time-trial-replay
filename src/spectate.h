@@ -37,6 +37,8 @@ extern void game_racer_finished(void *system, void *racer) GAME;
 extern void game_kart_immobile(void *kart, int flag) GAME;  /* setImmobileBehavior_VSC */
 extern void *game_rumble_original(void *a, void *b, int c, void *d, void *e, void *f) GAME;    /* hooks.s */
 extern void game_respawn_original(void *component, int kind, void *at) GAME;  /* hooks.s */
+extern void game_turbo_start(void *turbo) GAME;     /* GO: the start boost if charged (CKartTurboStart) */
+extern char *game_kart_settings(void) GAME;         /* +0x100 start boost settings */
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
