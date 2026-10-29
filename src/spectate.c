@@ -11,6 +11,7 @@
 
 static void show_preview(void);
 static void kart_hidden(void *kart, int hidden);
+static void send(void *(*factory)(void *pool), void *kart);
 
 /* ---- Ghost menu ---- */
 
@@ -57,6 +58,7 @@ void sp_menu_spectate(void *behavior, void *placeable)
     if (!g_ghost_manager || !project) return;
     if (!AT(g_ghost_manager, 0x48, uint8_t) && !count(AT(g_ghost_manager, 0x50, void *))) return;
     sp.armed = 1;
+    sp.unghosted = 0;
     sp.screen = 1;              /* sp_input presses Ready on the next screen */
     sp.screen_frames = 0;
     sp.screen_project = 0;
@@ -92,7 +94,6 @@ void sp_race_start(void *manager, void *racer)
     sp.watch = 0;
     sp.camera = sp.target = 0;
     sp.target_placed = 0;
-    sp.unghosted = 0;
     sp.lock = sp.hud = 0;
     sp.show_pad = 1;
     sp.go_watch = -1;
@@ -251,6 +252,14 @@ void *sp_input(void *manager)
     }
     void *ctrl = sp.screen || sp.forced ? controller() : 0;
     if (ctrl) screen_frame(ctrl);
+    /* The first watched ghost looks like a normal kart from the start: its ghost look fades out in
+     * about 0.7 s, so it is ended as soon as its kart is there, during the track's intro */
+    void *ghosts = sp.armed && !sp.active && g_ghost_manager ? AT(g_ghost_manager, 0x40, void *) : 0;
+    void *first = count(ghosts) ? ghost_kart(item(ghosts, 0)) : 0;
+    if (first && first != sp.unghosted) {
+        send(game_ghost_look_end_new, first);
+        sp.unghosted = first;
+    }
     hud_late();
     return game_input_original(manager);
 }
