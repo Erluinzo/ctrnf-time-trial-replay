@@ -205,6 +205,41 @@ static void rewind(void *manager, float time)
     }
 }
 
+/* Past its last key the game no longer places a ghost's kart: it falls (ghosts have no collisions)
+ * and keeps a broken state (flames, no engine sound) after a rewind. So in a spectator run each ghost
+ * is moved and read at most just before its own last move and input key (times are in 1/100 s). */
+static float ghost_end(void *ghost)
+{
+    void *moves = AT(ghost, 0x30, void *), *inputs = AT(ghost, 0x38, void *);
+    int n = count(moves), k = count(inputs);
+    float end = n ? key_time(moves, n - 1) : 0.0f;
+    if (k && AT(item(inputs, k - 1), 0xe, uint16_t) / 100.0f < end) end = AT(item(inputs, k - 1), 0xe, uint16_t) / 100.0f;
+    return end - 0.005f;
+}
+
+static void ghost_update(void (*update)(void *, void *), void *manager, void *ghost)
+{
+    float time = AT(manager, 0x18, float);
+    if (sp.active && manager == sp.manager && time > ghost_end(ghost)) {
+        AT(manager, 0x18, float) = ghost_end(ghost);
+        update(manager, ghost);
+        AT(manager, 0x18, float) = time;
+        return;
+    }
+    update(manager, ghost);
+}
+
+/* Called in place of the game's two calls for each playing ghost (0xfce60e, 0xfce619) */
+void sp_ghost_move(void *manager, void *ghost)
+{
+    ghost_update(game_ghost_move, manager, ghost);
+}
+
+void sp_ghost_inputs(void *manager, void *ghost)
+{
+    ghost_update(game_ghost_inputs, manager, ghost);
+}
+
 /* Point the race camera at the watched ghost's kart (CKartCamera._overrideFocusedEntity, +0x278). */
 static void follow(void *manager)
 {

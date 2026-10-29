@@ -34,7 +34,7 @@ GAME = {
     'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_position': 0x268f90,
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
-    'game_play_at': 0x1023c90,
+    'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
     'game_play_continue': 0x28a6b6, 'game_fill_ghosts_continue': 0xfceac6,
@@ -56,6 +56,8 @@ HOOKS = [
     (0xfce5a2, 'c4c17a584618', 'e8', 'hook_clock', 1),                     # every frame: the ghost clock
     (0x28a6b0, '554889e54157', 'e9', 'sp_play', 1),                        # every sound the game starts
     (0xfceac0, '554889e54157', 'e9', 'sp_menu_open', 1),                   # the ghost menu fills its list
+    (0xfce60e, 'e88d000000', 'e8', 'sp_ghost_move', 0),                    # every frame, each ghost: its movement
+    (0xfce619, 'e8e2030000', 'e8', 'sp_ghost_inputs', 0),                  # and its inputs
 ]
 
 CFLAGS = ['-c', '-O2', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protector',

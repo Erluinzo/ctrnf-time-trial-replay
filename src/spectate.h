@@ -9,6 +9,8 @@ extern void game_make_handle(void *slot, void *object) GAME;            /* objec
 extern void game_release(void *object) GAME;
 extern void *game_find_component(void *entity, void *meta, int zero) GAME;
 extern void game_ghost_reset(void *manager, void *ghost) GAME;           /* kart to key 0, indexes 0 */
+extern void game_ghost_move(void *manager, void *ghost) GAME;            /* move keys at the play time */
+extern void game_ghost_inputs(void *manager, void *ghost) GAME;          /* input keys at the play time */
 extern void game_start_recording(void *manager, void *racer) GAME;
 extern void *game_player_kart(void *kart_manager, int player, int one) GAME;
 extern void *game_camera_instance(void) GAME;                            /* first local player's */
