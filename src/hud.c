@@ -17,11 +17,11 @@ extern void game_hud_set_lap(void *hud, int lap) GAME;
 extern void game_hud_bar(void *hud, int style) GAME;
 extern void *g_race_clock_meta GAME;    /* CRaceClockComponent (world entity): +0x28 _raceTimer */
 static float ghost_end_time(void *ghost);
-static float drift_ratio(void *ghost, float t);
-static void slide_meter(void *root, float ratio);
 static void *world(void);
 static void *watched_ghost(void);
-extern void game_drift_ratio_original(void *kart, float *ratio) GAME;          /* hooks.s */
+extern void game_boost_update_original(void *hud, int flag) GAME;              /* hooks.s */
+extern void game_speed_original(void *kart, float *speed, int32_t *max) GAME;   /* hooks.s */
+extern void game_speed_ratio_original(void *kart, float *ratio) GAME;           /* hooks.s */
 extern void game_air_original(void *kart, void *a, void *b, void *c, void *d) GAME;   /* hooks.s */
 extern void *g_kart_move_meta GAME;     /* the kart component with the slide timer (+0xe0 state, +0xf8 timer) and air time (+0x248) */    /* gives the boost bar style's script the HUD's kart (+0x18) */  /* lap display; the final lap effect once (+0x88) */
 extern char *g_racer_manager GAME;      /* +0x18 driver list */
@@ -547,7 +547,6 @@ void hud_frame(void *manager)
         game_set_position(sp.help[i], at);
     }
 
-    slide_meter(root, drift_ratio(ghost, sp.time));
     int bits = inputs(ghost);
     float steer = (int8_t)(bits & 0xff) / 127.0f;
     for (int i = 0; i < PAD_COUNT; i++) {
@@ -559,50 +558,17 @@ void hud_frame(void *manager)
 }
 
 /* ---- Powerslide and jump meters ----
- * The HUD's boost bar reads the watched ghost's kart (hud_frame), but a ghost kart keeps no slide or
- * air data. For it, the two values are found from the ghost at the play time, without memory of
- * earlier frames (so rewinds need nothing): */
+ * The HUD's boost bar reads the watched ghost's kart (hud_frame). Its kart runs the game's slide
+ * logic from the ghost's inputs, so the powerslide meter only needs the kart's HUD events (below).
+ * A ghost kart keeps no air time: the jump meter's value is found from the ghost's movement at the
+ * play time, without memory of earlier frames (so rewinds need nothing). */
 
-#define IN_START_DRIFT 0x2000
-#define FILL_TIME 1.0f          /* s for a full meter if the game's value cannot be read */
 #define AIR_GRAVITY -3000.0f    /* units/s2: below this vertical acceleration the kart flies (gravity ~-4700) */
 
 static void *watched_kart(void)
 {
     void *list = sp.active && sp.manager ? AT(sp.manager, 0x40, void *) : 0;
     return sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
-}
-
-/* The game's time to fill the meter: the player's kart's slide data (component +0xb8 -> +0xa8 -> +0x20) */
-static float fill_time(void)
-{
-    void *move = sp.kart && g_kart_move_meta ? game_find_component(sp.kart, g_kart_move_meta, 0) : 0;
-    void *data = move ? handle_object(&AT(move, 0xb8, void *)) : 0;
-    void *slide = data ? AT(data, 0xa8, void *) : 0;
-    float t = slide ? AT(slide, 0x20, float) : 0.0f;
-    return t > 0.1f && t < 10.0f ? t : FILL_TIME;
-}
-
-/* The slide meter at time t: a slide starts on an input key with "start drift" and lasts while the
- * first jump button (R1) is held; the meter fills in the game's fill time from the slide start or
- * the last boost (second jump button, L1, pressed during the slide) */
-static float drift_ratio(void *ghost, float t)
-{
-    void *keys = AT(ghost, 0x38, void *);
-    int n = count(keys), held_l1 = 0;
-    float stage = -1.0f;
-    for (int i = 0; i < n; i++) {
-        int bits = AT(item(keys, i), 0xc, uint16_t);
-        float at = AT(item(keys, i), 0xe, uint16_t) / 100.0f;
-        if (at > t) break;
-        if (!(bits & IN_FIRST_JUMP)) stage = -1.0f;
-        else if (bits & IN_START_DRIFT) stage = at;
-        else if (stage >= 0.0f && bits & IN_SECOND_JUMP && !held_l1) stage = at;
-        held_l1 = bits & IN_SECOND_JUMP;
-    }
-    if (stage < 0.0f) return 0.0f;
-    float r = (t - stage) / fill_time();
-    return r > 1.0f ? 1.0f : r;
 }
 
 /* Height of the ghost at time t (move keys: +0xc position, z is up) */
@@ -656,44 +622,54 @@ void sp_hud_bar(void *hud, int style)
     AT(hud, 0x18, void *) = own;
 }
 
-/* The powerslide meter shows the watched ghost's slide: its bar script fills it only on the HUD
- * kart's own slide events, which a ghost kart does not send. As the game moves them (measured in a
- * normal race): Nitro Fueled bar, BoostMask x from -386 (empty) and the fill inside it the other way
- * from 410, by 410 x ratio; Classic bar, the fill's x scale up to 2.77. */
-#define NF_MASK_EMPTY -386.0f
-#define NF_FILL_EMPTY 410.0f
-#define CLASSIC_FULL 2.77f
-static void slide_meter(void *root, float ratio)
+/* Called in place of the racer HUD's "start boost update" (0xe437b0), which sends its kart to the
+ * meter's script: in a spectator run the watched ghost's kart */
+void sp_boost_update(void *hud, int flag)
 {
-    void *bar = find(root, "Octane_NFBoostBar", 1, 0);
-    void *mask = bar ? find(bar, "BoostMask", 1, 0) : 0;
-    void *fill = mask ? find(mask, "[octane_ui_hud_boost_nf_fill.tga]", 1, 0) : 0;
-    if (fill) {
-        float k = NF_FILL_EMPTY * ratio, at[3] = {NF_MASK_EMPTY + k, AT(mask, 0x64, float), 0.0f};
-        game_set_position(mask, at);
-        at[0] = NF_FILL_EMPTY - k;
-        at[1] = AT(fill, 0x64, float);
-        game_set_position(fill, at);
+    void *kart = hud && hud == sp.hud ? watched_kart() : 0;
+    if (!kart) {
+        game_boost_update_original(hud, flag);
+        return;
     }
-    bar = find(root, "Octane_BoostBar", 1, 0);
-    fill = bar ? find(bar, "[octane_ui_hud_boost_fill.tga]", 1, 0) : 0;
-    if (fill) {
-        float scale[3] = {CLASSIC_FULL * ratio, AT(fill, 0x88, float), AT(fill, 0x8c, float)};
-        game_set_scale(fill, scale);
-    }
+    void *own = AT(hud, 0x18, void *);
+    AT(hud, 0x18, void *) = kart;
+    game_boost_update_original(hud, flag);
+    AT(hud, 0x18, void *) = own;
 }
 
-/* Called in place of the game's powerslide meter value (0x1041c60) */
-void sp_drift_ratio(void *kart, float *ratio)
+/* Called in place of the kart code's "find the HUD component on this kart" where a slide starts and
+ * ends and a slide boost is made (0xe32826, 0xe2d5cb, 0xe2fe7b): the game then fills the powerslide
+ * meter itself (start / stop boost update events to the HUD). A ghost kart's own HUD component shows
+ * nothing: the watched one gets the player's. */
+void *sp_kart_hud(void *entity, void *meta, int zero)
 {
-    game_drift_ratio_original(kart, ratio);
-    if (kart && kart == watched_kart()) *ratio = drift_ratio(watched_ghost(), sp.time);
+    return entity && entity == watched_kart() && sp.hud ? sp.hud : game_find_component(entity, meta, zero);
+}
+
+/* Called in place of the game's speed values for the speedometer (0x1041ca0 speed ratio, 0x1041ce0
+ * forward speed), which it reads for the HUD's kart: in a spectator run the watched ghost's kart
+ * instead of the player's still one */
+static void *speed_kart(void *kart)
+{
+    void *watched = kart && kart == sp.kart ? watched_kart() : 0;
+    return watched ? watched : kart;
+}
+
+void sp_speed_ratio(void *kart, float *ratio)
+{
+    game_speed_ratio_original(speed_kart(kart), ratio);
+}
+
+void sp_forward_speed(void *kart, float *speed, int32_t *max)
+{
+    game_speed_original(speed_kart(kart), speed, max);
 }
 
 /* Called in place of the game's air time values (0x1041d90): the game computes them from the
  * ghost's air time, put for the call in the kart component's air time (+0x248) */
 void sp_air_data(void *kart, void *a, void *b, void *c, void *d)
 {
+    kart = speed_kart(kart);    /* the speedometer style's number asks for the HUD's kart */
     void *move = kart && kart == watched_kart() && g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
     if (!move) {
         game_air_original(kart, a, b, c, d);

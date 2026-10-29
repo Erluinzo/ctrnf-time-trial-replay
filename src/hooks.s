@@ -134,17 +134,8 @@ game_pad_original:
     push r15
     jmp game_pad_continue
 
-# 0x1041c60 (kart, float *ratio): a kart's powerslide meter, for the HUD script (getDriftRatio_VSC).
-# Replaced by a jump to sp_drift_ratio (hud.c), which calls this for the game's own value.
-    .globl game_drift_ratio_original
-game_drift_ratio_original:
-    push rbp
-    mov rbp, rsp
-    push rbx
-    push rax
-    jmp game_drift_continue
-
-# 0x1041d90 (kart, ...): a kart's air time values, for the HUD script (getAirTimeData_VSC): same, for sp_air_data.
+# 0x1041d90 (kart, ...): a kart's air time values, for the HUD script (getAirTimeData_VSC).
+# Replaced by a jump to sp_air_data (hud.c), which calls this for the game's own values.
     .globl game_air_original
 game_air_original:
     push rbp
@@ -184,3 +175,28 @@ game_respawn_original:
     mov rbp, rsp
     push r15
     jmp game_respawn_continue
+
+# 0xe437b0: the racer HUD's "start boost update": same as above, for sp_boost_update.
+    .globl game_boost_update_original
+game_boost_update_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_boost_update_continue
+
+# 0x1041ce0: a kart's forward speed values (getForwardSpeedValues_VSC): same, for sp_forward_speed.
+    .globl game_speed_original
+game_speed_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_speed_continue
+
+# 0x1041ca0: a kart's speed ratio (getMaxSpeedRatio_VSC): same, for sp_speed_ratio.
+    .globl game_speed_ratio_original
+game_speed_ratio_original:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push rax
+    jmp game_speed_ratio_continue
