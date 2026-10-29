@@ -32,13 +32,14 @@ GAME = {
     'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_position': 0x268f90,
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
-    'game_find_sound': 0x287780, 'game_play_at': 0x1023c90, 'game_bank_find': 0x283c10,
+    'game_find_sound': 0x287780, 'game_play_at': 0x1023c90,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
+    'game_play_continue': 0x28a6b6,
     'game_menu_after_gain': 0x9b38e3, 'game_menu_gain': 0x9b3b30, 'game_menu_lost': 0x9b3921,
     # data
     'g_ghost_manager': 0x2abc3d0, 'g_frame': 0x2ab4100, 'g_input_manager': 0x2ac2e90, 'g_players': 0x2ad1160, 'g_kart_manager': 0x2ac57c0,
-    'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_race_settings': 0x2ad4e30,
+    'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
     'g_string_pool': 0x2af2600, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'sp': STATE,
 }
 
@@ -49,6 +50,7 @@ HOOKS = [
     (0x9b3915, '4c39f84c89e30f8513010000', 'e9', 'hook_menu_lost', 7),     # an entry loses focus
     (0xea6390, 'e80b561200', 'e8', 'sp_race_start', 0),                    # race start: start recording the player
     (0xfce5a2, 'c4c17a584618', 'e8', 'hook_clock', 1),                     # every frame: the ghost clock
+    (0x28a6b0, '554889e54157', 'e9', 'sp_play', 1),                        # every sound the game starts
 ]
 
 CFLAGS = ['-c', '-O2', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protector',

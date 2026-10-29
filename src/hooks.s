@@ -94,3 +94,15 @@ hook_menu_lost:
 hook_clock:
     mov rdi, r14
     jmp sp_clock
+
+# 0x28a6b0, the game's lowest "play a sound" call (from 0xae2fc0, which about 95 places use, and
+# from the engine graphs): (CSoundInstance **out, CSoundSystem *, igHandle **sound, CEntity *entity,
+# const float position[3], xmm0 volume). Its first instructions
+# (push rbp; mov rbp, rsp; push r15) are replaced by a jump to sp_play (sounds.c), which calls
+# game_play_original: those instructions, then the rest of the game's function.
+    .globl game_play_original
+game_play_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_play_continue

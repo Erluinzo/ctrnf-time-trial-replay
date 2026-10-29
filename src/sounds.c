@@ -18,7 +18,6 @@ extern void game_play_at(void **instance, void *entity, const float *position, v
 extern char *game_string(void *pool, const char *text) GAME;
 extern void game_string_release(void *pool, char *header) GAME;
 extern void *g_string_pool GAME;
-extern void *game_bank_find(void *bank, char **name) GAME;      /* CSound* or 0 */
 
 #define IN_ACCELERATE 0x100
 #define IN_BRAKE 0x400
@@ -28,7 +27,7 @@ extern void *game_bank_find(void *bank, char **name) GAME;      /* CSound* or 0 
 /* Thresholds measured on recorded ghosts (Crash Cove: player ghost and N. Tropy) */
 #define TAP_EARLY 0.5f                  /* a boost tap works this long after the drift start or the last boost... */
 #define TAP_LATE 1.05f                  /* ...until this long (experts tap at 0.75-0.9 s) */
-#define HOP_LAND 0.42f                  /* a hop lands this long after the press, if no drift starts */
+#define HOP_LAND 0.36f                  /* a hop lands this long after the press on flat ground (or at the drift start) */
 #define SPEED_WINDOW 0.3f               /* s: speeds are averaged over this */
 #define SPEED_GAIN 300.0f               /* units/s gained in 0.3 s without a tap: a boost */
 #define SPEED_LOSS -700.0f              /* lost in 0.3 s without braking: a wall hit */
@@ -39,18 +38,32 @@ extern void *game_bank_find(void *bank, char **name) GAME;      /* CSound* or 0 
 #define GRID 0.05f                      /* movement is checked every 0.05 s of ghost time */
 #define VO_BUSY 2.0f                    /* a voice line counts as playing for this long */
 
-#define SOUND_TEST_VOICE 0
-#define SOUND_TEST_ONLY 1        /* TEST: only the test hook plays sounds */
 enum { P_NONE, P_HOP_LAND, P_LAND, P_VO_HIT, P_VO_AIR };
 
+static void *bank_sound(const char *name);
+static void position(void *ghost, float t, float *out);
+
+/* Voice lines by name on the ghost's driver (its character bank). Kart sounds come from the vehicle
+ * banks, which the game's name search does not look in: they are found in the bank and played on
+ * the ghost kart at its place, as the play by name call (0x1024340) does. */
 static void play(void *ghost, const char *name, int voice)
 {
     void *kart = ghost_kart(ghost);
-    if (voice && !SOUND_TEST_VOICE) return;     /* TEST: bisecting a crash */
     void *entity = kart && voice ? game_get_driver(kart) : kart;
     if (!entity) return;
-    void *instance = 0, *callback = 0;
-    game_play_sound(entity, name, &instance, &callback);
+    void *instance = 0, *callback[4] = {0};   /* "finished" delegate: two handles (0x263210), none here */
+    void *sound = voice ? 0 : bank_sound(name);
+    if (sound) {
+        float at[3];
+        position(ghost, sp.time, at);
+        game_play_at(&instance, kart, at, sound, callback);
+    } else {
+        game_play_sound(entity, name, &instance, callback);
+    }
+    int i = sp.log_n++ % 24;
+    sp.log[i].name = name;
+    sp.log[i].at = sp.time;
+    sp.log[i].ok = instance != 0;
     if (instance) {
         sp.sounds_played++;
         game_release(instance);
@@ -69,10 +82,16 @@ static void later(int what, float at)
         }
 }
 
-static void cancel(int what)
+/* Returns 1 if `what` was waiting */
+static int cancel(int what)
 {
+    int found = 0;
     for (int i = 0; i < 4; i++)
-        if (sp.pending[i].what == what) sp.pending[i].what = P_NONE;
+        if (sp.pending[i].what == what) {
+            sp.pending[i].what = P_NONE;
+            found = 1;
+        }
+    return found;
 }
 
 /* Kart position at ghost time t (lerp of the move keys, as the game places ghosts) */
@@ -152,15 +171,14 @@ static void input_events(void *ghost, float from, float to)
         float t = input_time(keys, i);
         int bits = input_bits(keys, i), before = input_bits(keys, i - 1);
         int rise = bits & ~before, fall = before & ~bits;
-        if (rise & IN_FIRST_JUMP) {
+        if ((rise & IN_FIRST_JUMP) && t >= sp.air_until) {     /* no hop in the air */
             play(ghost, "COM_VEH_Hop_Jump_PLR_set", 0);
             sp.last_hop = t;
             cancel(P_HOP_LAND);
             later(P_HOP_LAND, t + HOP_LAND);
         }
         if (rise & IN_START_DRIFT) {
-            cancel(P_HOP_LAND);
-            if (t - sp.last_hop < 0.8f) play(ghost, "COM_VEH_Hop_Land_PLR_set", 0);
+            if (cancel(P_HOP_LAND)) play(ghost, "COM_VEH_Hop_Land_PLR_set", 0);  /* landed before the usual time */
             play(ghost, "COM_VEH_Skid_drift_PLR_set", 0);
             sp.drift_start = sp.last_boost = t;
         }
@@ -294,20 +312,23 @@ static void sound_test(void *ghost)
     sp.test_used = entity;
     sp.test_result = 0;
     if (!entity) return;
-    void *instance = 0, *callback = 0;
+    void *instance = 0, *callback[4] = {0};   /* "finished" delegate: two handles (0x263210), none here */
     if (sp.test_mode == 0) {
-        game_play_sound(entity, sp.test_name, &instance, &callback);
+        game_play_sound(entity, sp.test_name, &instance, callback);
         sp.test_result = instance;
         if (instance) game_release(instance);
         return;
     }
-    if (sp.test_mode == 3) {        /* our own search in the kart sound banks, play at the ghost */
+    if (sp.test_mode >= 3) {        /* our own search in the kart sound banks, play at the ghost */
         void *sound = bank_sound(sp.test_name);
         sp.test_used = sound;
         if (sound) {
             float at[3];
             position(ghost, sp.time, at);
-            game_play_at(&instance, 0, at, sound, &callback);
+            /* 3: no entity, 4: ghost kart, 5: player kart, 6: ghost kart with position 0 (attached) */
+            void *with = sp.test_mode == 4 || sp.test_mode == 6 ? ghost_kart(ghost) : sp.test_mode == 5 ? sp.kart : 0;
+            if (sp.test_mode == 6) at[0] = at[1] = at[2] = 0.0f;
+            game_play_at(&instance, with, at, sound, callback);
             sp.test_result = instance;
             if (instance) game_release(instance);
         }
@@ -329,12 +350,80 @@ static void sound_test(void *ghost)
     if (sound) {
         float at[3];
         position(ghost, sp.time, at);
-        game_play_at(&instance, 0, at, sound, &callback);
+        game_play_at(&instance, 0, at, sound, callback);
         sp.test_result = instance;
         if (instance) game_release(instance);
     }
     game_make_handle(&handle, 0);
 }
+
+/* Plays the sounds of the watched ghost like the player's own kart.
+ * The game already plays every kart sound and voice line of a ghost itself, but with the "_NPC"
+ * version, which Time Trial keeps silent. sp_play (the start of the game's play call 0x28a6b0) starts
+ * the "_PLR" twin instead when the sound is for the watched ghost: so the events, rules, cooldowns
+ * and variants are the game's own. The engine and the drift and boost loops come from the kart's
+ * engine graph (CVehicleAudioComponent), which plays the "_PLR" set when its _isLocalPlayer is set. */
+
+extern void *game_play_original(void **out, void *system, void **sound, void *entity, const float *position, float volume) GAME;
+
+/* The "_PLR" sound of the same bank for an "_NPC" one ("VO2_NPC_Boosting" -> "VO2_PLR_Boosting",
+ * "COM_VEH_Hop_Jump_NPC_set" -> "COM_VEH_Hop_Jump_PLR_set"), or 0 */
+static void *plr_twin(void *sound)
+{
+    const char *name = AT(sound, 0x30, const char *);
+    char twin[96];
+    int at = -1, n = 0;
+    for (; name && name[n] && n < 95; n++) {
+        twin[n] = name[n];
+        if (at < 0 && n >= 1 && name[n - 1] == '_' && (name[n] | 32) == 'n' && (name[n + 1] | 32) == 'p'
+            && (name[n + 2] | 32) == 'c' && (name[n + 3] == '_' || !name[n + 3]))
+            at = n;
+    }
+    if (at < 0 || n >= 95) return 0;
+    twin[n] = 0;
+    int upper = name[at] == 'N';
+    twin[at] = upper ? 'P' : 'p';
+    twin[at + 1] = upper ? 'L' : 'l';
+    twin[at + 2] = upper ? 'R' : 'r';
+    void *sounds = AT(AT(sound, 0xd8, void *), 0x18, void *);     /* CSound +0xd8: its bank */
+    for (int i = 0; i < count(sounds); i++)
+        if (item(sounds, i) && same_name(AT(item(sounds, i), 0x30, const char *), twin)) return item(sounds, i);
+    return 0;
+}
+
+void *sp_play(void **out, void *system, void **sound, void *entity, const float *position, float volume)
+{
+    /* only in a spectator run while ghosts play (the manager lives for the whole game; +0x14 _isPlaying) */
+    int on = sp.active && sp.manager && sp.manager == g_ghost_manager && AT(sp.manager, 0x14, uint8_t);
+    void *list = on && entity && !sp.paused && !sp.scrub ? AT(sp.manager, 0x40, void *) : 0;
+    void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
+    void *npc = kart && (entity == kart || entity == game_get_driver(kart)) ? handle_object(sound) : 0;
+    void *plr = npc ? plr_twin(npc) : 0;
+    if (!plr) return game_play_original(out, system, sound, entity, position, volume);
+    void *slot = 0;
+    game_make_handle(&slot, plr);
+    void *result = game_play_original(out, system, &slot, entity, position, volume);
+    game_make_handle(&slot, 0);
+    sp.sounds_played++;
+    return result;
+}
+
+/* Engine graphs: the watched ghost's plays the "_PLR" engine at full volume while the clock runs
+ * forward; the other ghosts' are silent (only the watched kart is heard). */
+static void engines(void *list)
+{
+    int forward = !sp.paused && !sp.scrub;
+    for (int i = 0; i < count(list); i++) {
+        void *kart = ghost_kart(item(list, i));
+        void *audio = kart ? game_find_component(kart, g_vehicle_audio_meta, 0) : 0;
+        if (!audio) continue;
+        AT(audio, 0x79, uint8_t) = 1;                                      /* _isLocalPlayer */
+        AT(audio, 0x7c, float) = i == sp.watch && forward ? 1.0f : 0.0f;  /* wanted volume */
+        if (i == sp.watch) sp.audio = audio;
+    }
+}
+
+#define GUESS_EVENTS 0      /* TEST: own event detection, off while the game's own sounds are used */
 
 /* Every frame of a spectator run, after the clock moved from `from` to `to` */
 void sounds_frame(void *manager, float from, float to)
@@ -343,7 +432,9 @@ void sounds_frame(void *manager, float from, float to)
     void *ghost = sp.watch < count(list) ? item(list, sp.watch) : 0;
     if (!ghost || !ghost_kart(ghost)) return;
     sound_test(ghost);
-    if (SOUND_TEST_ONLY) return;
+    engines(list);
+    sp.player_audio = sp.kart ? game_find_component(sp.kart, g_vehicle_audio_meta, 0) : 0;
+    if (!GUESS_EVENTS) return;
     int forward = to >= from && !sp.scrub && to - from < 0.5f && sp.heard_watch == sp.watch && sp.heard == from;
     if (!forward) {
         restart(to);

@@ -28,6 +28,7 @@ extern char *g_players GAME;
 extern void *g_kart_manager GAME;
 extern void *g_kart_camera_meta GAME;
 extern void *g_hud_meta GAME;            /* CRacerHudComponent */
+extern void *g_vehicle_audio_meta GAME;  /* CVehicleAudioComponent */
 extern void *g_race_settings GAME;
 extern void *g_string_pool GAME;
 extern char *g_gui_manager GAME;
@@ -79,8 +80,13 @@ struct state {
     int test_mode;          /* 0 play by name on the entity, 1 look up only, 2 look up on the entity and play at the ghost */
     void *test_result, *test_used;
     char test_name[64];
+    /* Last sounds played (tools/peek.py): name, ghost time, instance or 0 */
+    int log_n;
+    struct { const char *name; float at; int ok; } log[24];
+    void *audio, *player_audio;     /* CVehicleAudioComponent of the watched ghost / the player (tests) */
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
+_Static_assert(__builtin_offsetof(struct state, log_n) == 376 && __builtin_offsetof(struct state, log) == 384, "tools/sounds.py reads the log here");
 extern struct state sp GAME;
 
 /* Field access on game objects */
