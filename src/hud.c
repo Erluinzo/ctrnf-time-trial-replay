@@ -653,8 +653,8 @@ void sp_boost_update(void *hud, int flag)
 }
 
 /* Called in place of the kart code's "find the HUD component on this kart" where a slide starts and
- * ends and a slide boost is made (0xe32826, 0xe2d5cb, 0xe2fe7b): the game then fills the powerslide
- * meter itself (start / stop boost update events to the HUD). A ghost kart's own HUD component shows
+ * ends and a slide boost is made or fails (0xe32826, 0xe2d5cb, 0xe32bad, 0xe2fe7b): the game then
+ * fills the powerslide meter and shows its ratings itself (events to the HUD). A ghost kart's own HUD component shows
  * nothing: the watched one gets the player's. */
 void *sp_kart_hud(void *entity, void *meta, int zero)
 {

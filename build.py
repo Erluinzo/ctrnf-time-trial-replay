@@ -70,7 +70,8 @@ HOOKS = [
     (0xe437b0, '554889e54157', 'e9', 'sp_boost_update', 1),                # the HUD starts its meter update
     (0xe32826, 'e865975aff', 'e8', 'sp_kart_hud', 0),                      # a slide starts: the kart's HUD
     (0xe2d5cb, 'e8c0e95aff', 'e8', 'sp_kart_hud', 0),                      # a slide ends
-    (0xe2fe7b, 'e810c15aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost
+    (0xe2fe7b, 'e810c15aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost fails
+    (0xe32bad, 'e8de935aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost (its rating)
     (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
     (0xf350b8, 'e9f3000000', 'e9', 'sp_player_finished', 0),               # the player finishes the race
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
