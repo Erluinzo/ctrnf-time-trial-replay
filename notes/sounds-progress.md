@@ -45,3 +45,4 @@ ELF addresses of `CTRNF/out/eboot.elf`. See `kart-events.md` for the research be
   the ghost (entity 0), 3 own `veh_common*` bank search then play at the ghost. Remove before release.
 - `play()` in sounds.c still uses `0x1024340` (crashes on ghost entities): change it to: voice = look up on the ghost driver +
   `0x1023c90` at the ghost position (works); kart sounds = still open (see above). Common-bank sounds (`GPI_BoostPad_PLR`) work.
+TEST FILE added by the agent 2026-10-29 03:10: mod-state/user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost (remove at cleanup)

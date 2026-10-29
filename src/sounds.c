@@ -6,7 +6,7 @@
  *   when the sound is for the watched ghost's kart or driver. So the events, rules, cooldowns and
  *   variants are the game's own.
  * - The engine graph (CVehicleAudioComponent) plays its "_PLR" set when _isLocalPlayer is set: on for
- *   every ghost, at full volume for the watched one and silent for the others.
+ *   the watched ghost; the others fade out and go back to their silent "_NPC" set.
  * - Ghosts have no collisions, so the game has no wall hits for them: those are found in the ghost's
  *   movement (a sudden speed loss without braking) and get the impact sound and, 0.2 s later, the
  *   "Ouch" line, as the game's voice script does (notes/kart-events.md).
@@ -192,8 +192,12 @@ void sounds_frame(void *manager, float from, float to)
         void *kart = ghost_kart(item(list, i));
         void *audio = kart ? game_find_component(kart, g_vehicle_audio_meta, 0) : 0;
         if (!audio) continue;
-        AT(audio, 0x79, uint8_t) = 1;                                        /* _isLocalPlayer */
-        AT(audio, 0x7c, float) = i == sp.watch && forward() ? 1.0f : 0.0f;  /* wanted volume */
+        /* _isLocalPlayer also makes the surface sounds "_PLR": only the watched ghost keeps it. The
+         * others keep it until their "_PLR" engine faded out (+0x88 current volume), or it would
+         * stay at its last volume. */
+        int watched = i == sp.watch;
+        AT(audio, 0x79, uint8_t) = watched || AT(audio, 0x88, float) > 0.001f;
+        AT(audio, 0x7c, float) = watched && forward() ? 1.0f : 0.0f;     /* wanted volume */
     }
     void *ghost = sp.watch < count(list) ? item(list, sp.watch) : 0;
     if (!ghost || !ghost_kart(ghost)) return;
