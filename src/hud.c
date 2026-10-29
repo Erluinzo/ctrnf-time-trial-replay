@@ -574,46 +574,14 @@ void hud_frame(void *manager)
 
 /* ---- Powerslide and jump meters ----
  * The HUD's boost bar reads the watched ghost's kart (hud_frame). Its kart runs the game's slide
- * logic from the ghost's inputs, so the powerslide meter only needs the kart's HUD events (below).
- * A ghost kart keeps no air time: the jump meter's value is found from the ghost's movement at the
- * play time, without memory of earlier frames (so rewinds need nothing). */
+ * logic from the ghost's inputs (slides, jumps and air time), so the meters only need the kart's
+ * HUD events and the HUD's kart (below). */
 
-#define AIR_GRAVITY -3000.0f    /* units/s2: below this vertical acceleration the kart flies (gravity ~-4700) */
 
 static void *watched_kart(void)
 {
     void *list = sp.active && sp.manager ? AT(sp.manager, 0x40, void *) : 0;
     return sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
-}
-
-/* Height of the ghost at time t (move keys: +0xc position, z is up) */
-static float height(void *keys, float t)
-{
-    int lo = 0, hi = count(keys) - 1;
-    while (hi - lo > 1) {
-        int mid = (lo + hi) / 2;
-        if (key_time(keys, mid) <= t) lo = mid; else hi = mid;
-    }
-    float t0 = key_time(keys, lo), t1 = key_time(keys, hi), f = t1 > t0 ? (t - t0) / (t1 - t0) : 0.0f;
-    if (f < 0.0f) f = 0.0f;
-    if (f > 1.0f) f = 1.0f;
-    return AT(item(keys, lo), 0x14, float) + f * (AT(item(keys, hi), 0x14, float) - AT(item(keys, lo), 0x14, float));
-}
-
-static int flying(void *keys, float t)
-{
-    const float h = 0.1f;
-    return (height(keys, t + h) - 2 * height(keys, t) + height(keys, t - h)) / (h * h) < AIR_GRAVITY;
-}
-
-/* Air time at t: how long the ghost has been falling freely (at most 5 s back) */
-static float air_time(void *ghost, float t)
-{
-    void *keys = AT(ghost, 0x30, void *);
-    if (count(keys) < 3 || !flying(keys, t)) return 0.0f;
-    float s = t;
-    while (s > t - 5.0f && flying(keys, s - 0.05f)) s -= 0.05f;
-    return t - s;
 }
 
 static void *watched_ghost(void)
@@ -680,20 +648,11 @@ void sp_forward_speed(void *kart, float *speed, int32_t *max)
     game_speed_original(speed_kart(kart), speed, max);
 }
 
-/* Called in place of the game's air time values (0x1041d90): the game computes them from the
- * ghost's air time, put for the call in the kart component's air time (+0x248) */
+/* Called in place of the game's air time values (0x1041d90): the speedometer style's air time
+ * number asks for the HUD's kart (the jump meter already reads the watched kart's own air time) */
 void sp_air_data(void *kart, void *a, void *b, void *c, void *d)
 {
-    kart = speed_kart(kart);    /* the speedometer style's number asks for the HUD's kart */
-    void *move = kart && kart == watched_kart() && g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
-    if (!move) {
-        game_air_original(kart, a, b, c, d);
-        return;
-    }
-    float own = AT(move, 0x248, float);
-    AT(move, 0x248, float) = air_time(watched_ghost(), sp.time);
-    game_air_original(kart, a, b, c, d);
-    AT(move, 0x248, float) = own;
+    game_air_original(speed_kart(kart), a, b, c, d);
 }
 
 /* The ghost's race end: its last move key (as ghost_end in spectate.c, without the margin) */
