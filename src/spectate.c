@@ -16,7 +16,8 @@ extern void game_make_handle(void *slot, void *object) GAME;            /* objec
 extern void game_release(void *object) GAME;
 extern void *game_find_component(void *entity, void *meta, int zero) GAME;
 extern void game_ghost_reset(void *manager, void *ghost) GAME;           /* kart to key 0, indexes 0 */
-extern void game_start_recording(void *manager, void *kart) GAME;
+extern void game_start_recording(void *manager, void *racer) GAME;
+extern void *game_player_kart(void *kart_manager, int player, int one) GAME;
 extern void *game_camera_instance(void) GAME;                            /* first local player's */
 extern void *game_active_camera(void *boxes) GAME;
 extern void game_camera_refresh(void *camera) GAME;
@@ -31,6 +32,7 @@ extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
 extern char *g_input_manager GAME;
 extern char *g_players GAME;
+extern void *g_kart_manager GAME;
 extern void *g_kart_camera_meta GAME;
 extern void *g_hud_meta GAME;            /* CRacerHudComponent */
 extern void *g_race_settings GAME;
@@ -155,15 +157,15 @@ void sp_menu_spectate(void *behavior, void *placeable)
 
 /* ---- Race ---- */
 
-/* Called in place of the game's "start recording the player's kart" at the race start (0xea6390). */
-void sp_race_start(void *manager, void *kart)
+/* Called in place of the game's "start recording the player" at the race start (0xea6390). */
+void sp_race_start(void *manager, void *racer)
 {
-    game_start_recording(manager, kart);
+    game_start_recording(manager, racer);
     sp.active = sp.armed && manager;
     if (!sp.active) return;
     AT(manager, 0x0c, uint8_t) = 0;     /* _isRecording: the race end saves nothing (0xfcefe0) */
     sp.manager = manager;
-    sp.kart = kart;
+    sp.kart = 0;
     sp.set_up = 0;
     sp.paused = 0;
     sp.speed = NORMAL_SPEED;
@@ -175,21 +177,27 @@ void sp_race_start(void *manager, void *kart)
     sp.lock = sp.hud = 0;
 }
 
-/* The first local player's controller (as 0x123a050), or 0 */
-static void *controller(void)
+/* The first local player's id (CPlayer: +0x20 type, local <= 7; +0xb0 id), or -1 */
+static int local_player(void)
 {
     void *list = g_players ? AT(g_players, 0x10, void *) : 0;
-    if (!g_input_manager) return 0;
     for (int i = 0; i < count(list); i++) {
         void *player = item(list, i);
         if (!player || AT(player, 0x20, int32_t) > 7) continue;
         int id = AT(player, 0xb0, int32_t);
-        if (id < 0 || id > 7) return 0;
-        int index = AT(g_input_manager, 0x38 + 4 * id, int32_t);
-        void *controllers = AT(g_input_manager, 0x28, void *);
-        return index >= 0 && index < count(controllers) ? item(controllers, index) : 0;
+        return id >= 0 && id <= 7 ? id : -1;
     }
-    return 0;
+    return -1;
+}
+
+/* The first local player's controller (as 0x123a050), or 0 */
+static void *controller(void)
+{
+    int id = local_player();
+    if (id < 0 || !g_input_manager) return 0;
+    int index = AT(g_input_manager, 0x38 + 4 * id, int32_t);
+    void *controllers = AT(g_input_manager, 0x28, void *);
+    return index >= 0 && index < count(controllers) ? item(controllers, index) : 0;
 }
 
 /* Bit of each spectator button in _buttonState: the first game button mapped to its signal */
@@ -209,7 +217,8 @@ static void find_bits(void *ctrl)
 static void set_up(void *manager)
 {
     sp.set_up = 1;
-    void *kart = sp.kart;
+    int id = local_player();
+    void *kart = sp.kart = id >= 0 && g_kart_manager ? game_player_kart(g_kart_manager, id, 1) : 0;
     void *input = kart ? AT(kart, 0x1a0, void *) : 0;
     if (input && AT(input, 0x58, void *)) {
         void *request = 0;
@@ -296,7 +305,8 @@ static void follow(void *manager)
     void *camera = boxes ? game_active_camera(boxes) : 0;
     if (!camera || !g_kart_camera_meta) return;
     typedef void *meta_fn(void *);
-    if ((*(meta_fn **)camera)(camera) != g_kart_camera_meta) return;   /* intro and countdown cameras */
+    meta_fn **vtable = *(meta_fn ***)camera;
+    if (vtable[0](camera) != g_kart_camera_meta) return;   /* not a kart camera: intro and countdown */
     if (camera == sp.camera && target == sp.target) return;
     game_make_handle((char *)camera + 0x278, target);
     game_camera_refresh(camera);
