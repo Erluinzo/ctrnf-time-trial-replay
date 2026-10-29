@@ -17,13 +17,15 @@ extern void game_hud_set_lap(void *hud, int lap) GAME;
 extern void game_hud_bar(void *hud, int style) GAME;
 extern void *g_race_clock_meta GAME;    /* CRaceClockComponent (world entity): +0x28 _raceTimer */
 static float ghost_end_time(void *ghost);
+void sp_boost_update(void *hud, int flag);
 static void *world(void);
 static void *watched_ghost(void);
 extern void game_boost_update_original(void *hud, int flag) GAME;              /* hooks.s */
+extern void game_hud_boost_stop(void *hud) GAME;    /* the meter's "stop boost update" */
 extern void game_speed_original(void *kart, float *speed, int32_t *max) GAME;   /* hooks.s */
 extern void game_speed_ratio_original(void *kart, float *ratio) GAME;           /* hooks.s */
 extern void game_air_original(void *kart, void *a, void *b, void *c, void *d) GAME;   /* hooks.s */
-extern void *g_kart_move_meta GAME;     /* the kart component with the slide timer (+0xe0 state, +0xf8 timer) and air time (+0x248) */    /* gives the boost bar style's script the HUD's kart (+0x18) */  /* lap display; the final lap effect once (+0x88) */
+extern void *g_kart_move_meta GAME;     /* the kart component with the slide timer (+0xe0 state, +0xf8 timer) and air time (+0x248) */
 extern char *g_racer_manager GAME;      /* +0x18 driver list */
 extern const char g_composition_vtable[] GAME;   /* igGuiComposition */
 extern const char g_minimap_player_vtable[] GAME;    /* CGuiBehaviorMinimapPlayer */
@@ -39,7 +41,7 @@ extern uint32_t g_world_id GAME, g_world_no_id GAME;
 #define STATUS_BOX 0.11f                        /* see hud_frame */
 #define HELP_SCALE 0.55f                        /* the help lines: smaller than the status line */
 /* The Reserves Meter mod's pieces (all its versions): the player's reserves, always 0 here */
-static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]"};
+static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]", "[ReservesFill]", "[ReservesFillTop]"};
 
 /* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
  * port's button_prompts.py), each placed by its middle in HUD space, and a D-pad of four game
@@ -513,6 +515,12 @@ void hud_frame(void *manager)
     if (sp.hud && kart && kart != sp.bar_kart) {
         game_hud_bar(sp.hud, AT(sp.hud, 0x8c, int32_t));     /* _boostBarIndex */
         sp.bar_kart = kart;
+        /* The powerslide meter follows the kart's slide events: after a switch it is told whether the
+         * new kart is in a slide now (its slide timer runs: move component +0xf8, timer +0x14) */
+        void *move = g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
+        void *timer = move ? AT(move, 0xf8, void *) : 0;
+        if (timer && AT(timer, 0x14, uint8_t)) sp_boost_update(sp.hud, 1);
+        else game_hud_boost_stop(sp.hud);
     }
     /* The game's lap display shows the watched ghost's lap. Its final lap effect plays once per
      * entry into the last lap (+0x88 cleared below it, e.g. after a rewind). */

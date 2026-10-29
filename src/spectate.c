@@ -666,13 +666,15 @@ void sp_turbo_start(void *turbo)
 /* Called in place of the kart's "boost from the boost pad under it" (0xe56595, 0xe57120), made when the
  * ground under the kart changes. Slower than x1 the ghost kart's ground contact can drop for a frame on
  * a pad, which gave a second boost (seen at x0.1). Slow playback should look like x1: no new pad boost
- * for the watched kart within PAD_REPEAT s of ghost time (pads at x1 were 0.83 s apart or more). */
+ * for the watched kart within PAD_REPEAT s of ghost time (pads at x1 were 0.83 s apart or more). The
+ * hidden player kart gets none (it filled the Reserves Meter mod's bar). */
 #define PAD_REPEAT 0.6f
 void sp_pad_boost(void **out, void *controller, void **material)
 {
     int watched = sp.active && controller && AT(controller, 0x18, void *) == sp.target;
     int slow = !sp.scrub && SPEEDS[sp.speed] < 1.0f;
-    if (watched && slow && sp.time > sp.pad_at && sp.time - sp.pad_at < PAD_REPEAT) {
+    int player = sp.active && controller && AT(controller, 0x18, void *) == sp.kart;  /* carried under the road */
+    if (player || (watched && slow && sp.time > sp.pad_at && sp.time - sp.pad_at < PAD_REPEAT)) {
         *out = 0;
         return;
     }
@@ -687,6 +689,20 @@ void sp_camera_contacts(void *camera, void **contacts, int n)
 {
     if (sp.active && camera == sp.camera) return;
     game_camera_contacts_original(camera, contacts, n);
+}
+
+/* Called in place of a kart's collision response (0xe916b0, a callback for its body's contacts): the
+ * ghosts had no collisions in the race, but their karts' bodies still touch the level when placed (e.g.
+ * an overhead sign at 112.4 s on Electron Avenue), and a hit while boosting ended all the kart's boosts
+ * and its sacred fire. In a spectator run ghost karts and the hidden player kart get no response. */
+long sp_collision(void *response, void *contacts, void *pairs)
+{
+    void *entity = sp.active && response ? AT(response, 0x18, void *) : 0;
+    void *list = entity && sp.manager ? AT(sp.manager, 0x40, void *) : 0;
+    if (entity && entity == sp.kart) return 0;
+    for (int i = 0; i < count(list); i++)
+        if (ghost_kart(item(list, i)) == entity) return 0;
+    return game_collision_original(response, contacts, pairs);
 }
 
 /* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"
@@ -751,3 +767,4 @@ float sp_clock(void *manager, float game_time)
     sounds_frame(manager, old, time);
     return time;
 }
+

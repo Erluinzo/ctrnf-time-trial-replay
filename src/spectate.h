@@ -40,6 +40,7 @@ extern void game_respawn_original(void *component, int kind, void *at) GAME;  /*
 extern void game_turbo_start(void *turbo) GAME;     /* GO: the start boost if charged (CKartTurboStart) */
 extern char *game_kart_settings(void) GAME;         /* +0x100 start boost settings */
 extern void game_pad_boost(void **out, void *controller, void **material) GAME;    /* 0 if no pad */
+extern long game_collision_original(void *response, void *contacts, void *pairs) GAME;   /* hooks.s */
 extern void game_camera_contacts_original(void *camera, void **contacts, int n) GAME;   /* hooks.s */
 /* Game data */
 extern char *g_ghost_manager GAME;

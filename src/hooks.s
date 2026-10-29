@@ -208,3 +208,11 @@ game_camera_contacts_original:
     mov rbp, rsp
     push r15
     jmp game_camera_contacts_continue
+
+# 0xe916b0 (collision response, contacts, pairs): a kart's collision response: same, for sp_collision.
+    .globl game_collision_original
+game_collision_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_collision_continue
