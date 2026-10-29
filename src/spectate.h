@@ -108,6 +108,7 @@ struct state {
     void *pad[15];          /* virtual controller buttons and D-pad arrows (hud.c) */
     void *help_arrow[4];    /* D-pad arrows of the help lines (hud.c) */
     int bar_stop;           /* the powerslide meter gets "stop" when the play goes on (hud.c) */
+    void *shared_next;      /* g_spectate_kart from the next frame on (hud.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
     /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,
@@ -132,11 +133,15 @@ struct state {
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
     float pad_at;           /* ghost time of the watched kart's last boost pad boost */
 };
-_Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
+_Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212
                && __builtin_offsetof(struct state, log_n) == 216 && __builtin_offsetof(struct state, log) == 224,
                "tools/peek.py and tools/sounds.py read these offsets");
 extern struct state sp GAME;
+/* For other mods (the Reserves Meter): the watched ghost's kart during a spectator run, else 0. Set at
+ * the start of each frame (sp_input) from the frame before, so it is 0 again one frame after a run
+ * ends. Fixed address 0x2beef78; the memory is 0 when this mod is not installed. */
+extern void *g_spectate_kart GAME;
 
 /* Field access on game objects */
 #define AT(object, offset, type) (*(type *)((char *)(object) + (offset)))

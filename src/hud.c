@@ -40,8 +40,6 @@ extern uint32_t g_world_id GAME, g_world_no_id GAME;
 #define ARROW_TEMPLATE "[octane_ui_hud_boost_nf_arrow.tga]"   /* a small arrow, pointing down at 0 degrees */
 #define STATUS_BOX 0.11f                        /* see hud_frame */
 #define HELP_SCALE 0.55f                        /* the help lines: smaller than the status line */
-/* The Reserves Meter mod's pieces (all its versions): the player's reserves, always 0 here */
-static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]", "[ReservesFill]", "[ReservesFillTop]"};
 
 /* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
  * port's button_prompts.py), each placed by its middle in HUD space, and a D-pad of four game
@@ -520,10 +518,6 @@ void hud_frame(void *manager)
     if (!root) return;
     if (root != sp.root || !sp.status_text || !is_child(root, sp.status_text)) build(project, root);
     hide_player_icon();
-    for (int i = 0; i < child_count(root); i++) {
-        for (int h = 0; h < (int)(sizeof HIDE_PIECES / sizeof *HIDE_PIECES); h++)
-            if (same_text(AT(child(root, i), 0x28, const char *), HIDE_PIECES[h])) game_set_hidden(child(root, i), 1);
-    }
 
     void *list = AT(manager, 0x40, void *);
     void *ghost = sp.watch < count(list) ? item(list, sp.watch) : 0;
@@ -535,6 +529,7 @@ void hud_frame(void *manager)
     }
     /* The boost bar (powerslide and jump meters) reads the watched ghost's kart (sp_hud_bar) */
     void *kart = ghost_kart(ghost);
+    sp.shared_next = kart;                  /* for other mods: see g_spectate_kart */
     if (sp.hud && kart && kart != sp.bar_kart) {
         game_hud_bar(sp.hud, AT(sp.hud, 0x8c, int32_t));     /* _boostBarIndex */
         sp.bar_kart = kart;

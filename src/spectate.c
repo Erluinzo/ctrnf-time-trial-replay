@@ -245,6 +245,8 @@ void sp_legend_add(void *project, int button, char **text, int always)
 /* Called in place of the input manager's update (0xa3b350), every frame */
 void *sp_input(void *manager)
 {
+    g_spectate_kart = sp.shared_next;
+    sp.shared_next = 0;
     /* The run is over (level exit clears _isPlaying, +0x14): the game's speed back to normal */
     if (sp.game_speed_set && !(sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t)) && g_frame) {
         AT(g_frame, 0x2c, float) = 1.0f;

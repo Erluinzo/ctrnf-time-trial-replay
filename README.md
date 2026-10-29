@@ -33,7 +33,8 @@ The race starts without you: the camera follows a ghost.
 ## Install
 In the OCTR launcher: Mods > Add files, choose the ZIP from the
 [releases](https://github.com/Erluinzo/ctrnf-time-trial-spectator/releases), enable it, fully restart the game.
-Works together with Ghost Sharing (shared ghosts can be watched too).
+Works together with Ghost Sharing (shared ghosts can be watched too) and with the Reserves Meter (1.1.0
+or later: it shows the watched ghost's reserves).
 
 ## Limits
 - Ghost files keep the movement and the inputs, but not the collisions. Wall hits are found from the
