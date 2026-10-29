@@ -509,9 +509,22 @@ void sp_ghost_move(void *manager, void *ghost)
     ghost_update(game_ghost_move, manager, ghost);
 }
 
+/* Faster than x1 a frame can jump over a short input (a boost tap in a slide: the kart misses the
+ * boost and loses its sacred fire, seen at x4). So the inputs never skip a key: when this frame would
+ * pass the next key (+0x44 is the key in effect), they stop on it and catch up on the next frames.
+ * Not after a jump in time (rewind, start): only for a step of up to SKIP_MAX s. */
+#define SKIP_MAX 0.25f
 void sp_ghost_inputs(void *manager, void *ghost)
 {
+    void *keys = AT(ghost, 0x38, void *);
+    int next = AT(ghost, 0x44, int32_t) + 1;
+    float time = AT(manager, 0x18, float);
+    if (sp.active && manager == sp.manager && next >= 1 && next + 1 < count(keys)) {
+        float t1 = AT(item(keys, next), 0xe, uint16_t) / 100.0f, t2 = AT(item(keys, next + 1), 0xe, uint16_t) / 100.0f;
+        if (time >= t2 && time - t1 < SKIP_MAX) AT(manager, 0x18, float) = t1;
+    }
     ghost_update(game_ghost_inputs, manager, ghost);
+    AT(manager, 0x18, float) = time;
 }
 
 /* Point the race camera at the watched ghost's kart (CKartCamera._overrideFocusedEntity, +0x278). */
@@ -585,24 +598,20 @@ static void hide_player(void)
     kart_hidden(sp.kart, 1);
 }
 
-/* The level's triggers show parts of the track (e.g. Electron Avenue's road) as the player's kart
- * comes near, so the hidden kart is put just behind the camera every frame: near the watched ghost,
- * never in view. The camera's position is its +0x30; "behind" is away from the ghost. The kart does
- * not move by itself (immobile, speed 0, air time 0), makes no sound (sounds.c) and no controller
- * rumble (sp_rumble), and its laps, race end and "wrong way" are ignored (sp_player_lap,
- * sp_player_finished, hud.c). */
-#define CARRY_BEHIND 400.0f
+/* The level's triggers show parts of the track (e.g. Electron Avenue's road at 0:17 and 0:25) as the
+ * player's kart comes near, so the hidden kart is put where the watched ghost will be in CARRY_AHEAD s,
+ * CARRY_UNDER units under it: the road ahead is shown in time (just behind the camera it came too late),
+ * and nothing of the kart can be seen. It does not move by itself (immobile, speed 0, air time 0), makes
+ * no sound (sounds.c), no controller rumble (sp_rumble) and no respawn (sp_respawn), and its laps, race
+ * end and "wrong way" are ignored (sp_player_lap, sp_player_finished, hud.c). */
+#define CARRY_AHEAD 0.3f
+#define CARRY_UNDER 400.0f
 static void carry_player(void *manager)
 {
     void *list = AT(manager, 0x40, void *);
-    void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
-    if (!kart || !sp.kart || !sp.camera || sp.target != kart) return;
-    const float *eye = &AT(sp.camera, 0x30, float), *ghost = &AT(kart, 0x20, float);
-    float away[3] = {eye[0] - ghost[0], eye[1] - ghost[1], eye[2] - ghost[2]};
-    float d = away[0] * away[0] + away[1] * away[1] + away[2] * away[2], r = d > 1.0f ? d : 1.0f;
-    for (int i = 0; i < 20; i++) r = 0.5f * (r + d / r);     /* square root */
     float at[3];
-    for (int i = 0; i < 3; i++) at[i] = eye[i] + (d > 1.0f ? away[i] / r * CARRY_BEHIND : 0.0f);
+    if (!sp.kart || sp.watch >= count(list) || !smooth_pose(item(list, sp.watch), sp.time + CARRY_AHEAD, 0, at)) return;
+    at[2] -= CARRY_UNDER;      /* z is up */
     game_set_entity_position(sp.kart, at);
     AT(sp.kart, 0x60, float) = AT(sp.kart, 0x64, float) = AT(sp.kart, 0x68, float) = 0.0f;
     void *move = g_kart_move_meta ? game_find_component(sp.kart, g_kart_move_meta, 0) : 0;
