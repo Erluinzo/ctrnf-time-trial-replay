@@ -118,6 +118,8 @@ struct state {
     int restore_frames;     /* frames left to restore the saved boosts */
     int restored_step;      /* history step of the last frame */
     int kept_n;             /* boost data kept for the history */
+    int making;             /* boosts.c makes a boost now: the game's "add a boost" lets it */
+    int quiet;              /* boosts.c makes a boost again: no sounds (sounds.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
     /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,
@@ -204,6 +206,7 @@ void screen_gui(void *project, int show);
 /* boosts.c */
 void boosts_frame(void *manager, float old, float time);
 void boosts_reset(void);
+void sp_add_boost(void **out, void *component, void *definition, void *a, void *b, float strength);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);
 /* spectate.c */

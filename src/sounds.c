@@ -189,6 +189,10 @@ static void *plr_twin(void *sound)
 
 void *sp_play(void **out, void *system, void **sound, void *entity, const float *position, float volume)
 {
+    if (sp.quiet) {         /* a boost made again after a rewind (boosts.c) */
+        if (out) *out = 0;
+        return 0;
+    }
     void *started = sp.screen ? handle_object(sound) : 0;
     /* the character screen's countdown ticks (spectate.c presses Ready until it runs) */
     if (started && same_name(AT(started, 0x30, const char *), "ui_customization_countdown"))

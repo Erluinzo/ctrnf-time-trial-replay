@@ -217,6 +217,14 @@ game_slide_level_original:
     push r15
     jmp game_slide_level_continue
 
+# 0xe2dd10 (out handle, boost component, definition, a, b, xmm0 strength): add a boost: same, for sp_add_boost.
+    .globl game_add_boost_original
+game_add_boost_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_add_boost_continue
+
 # 0xe916b0 (collision response, contacts, pairs): a kart's collision response: same, for sp_collision.
     .globl game_collision_original
 game_collision_original:
