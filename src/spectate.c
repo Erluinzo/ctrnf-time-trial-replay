@@ -636,8 +636,9 @@ static void hide_player(void)
  * player's kart comes near, so the hidden kart is put where the watched ghost will be in CARRY_AHEAD s,
  * CARRY_UNDER units under it: the road ahead is shown in time (just behind the camera it came too late),
  * and nothing of the kart can be seen. It does not move by itself (immobile, speed 0, air time 0), makes
- * no sound (sounds.c), no controller rumble (sp_rumble) and no respawn (sp_respawn), and its laps, race
- * end and "wrong way" are ignored (sp_player_lap, sp_player_finished, sp_wrong_way). */
+ * no sound (sounds.c), no controller rumble (sp_rumble) and no respawn (sp_respawn), its laps and race
+ * end are ignored (sp_player_lap, sp_player_finished), and its WRONG WAY check looks at the watched
+ * ghost (sp_wrong_way_position and _angles, hud.c). */
 #define CARRY_AHEAD 0.3f
 #define CARRY_UNDER 400.0f
 static void carry_player(void *manager)
@@ -749,14 +750,6 @@ void sp_player_finished(void *system, void *racer)
 {
     if (sp.active) return;
     game_racer_finished(system, racer);
-}
-
-/* Called in place of the game's "wrong way" message to the racer HUD (0xe48f07; on and off): the HUD
- * shows WRONG WAY and plays its sound. In a spectator run the hidden kart only follows the watched
- * ghost, so it gets "off" only. */
-void sp_wrong_way(void *hud, int on)
-{
-    game_wrong_way(hud, on && !sp.active);
 }
 
 /* The game's speed for a stopped playback: not 0, as quitting from a level whose last frame had no

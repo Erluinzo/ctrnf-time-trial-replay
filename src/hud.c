@@ -22,6 +22,8 @@ static void *world(void);
 static void *watched_ghost(void);
 extern void game_boost_update_original(void *hud, int flag) GAME;              /* hooks.s */
 extern void game_hud_boost_stop(void *hud) GAME;    /* the meter's "stop boost update" */
+extern void game_entity_position(float *out, void *entity) GAME;
+extern void game_entity_angles(float *out, void *entity) GAME;
 extern void game_speed_original(void *kart, float *speed, int32_t *max) GAME;   /* hooks.s */
 extern void game_speed_ratio_original(void *kart, float *ratio) GAME;           /* hooks.s */
 extern void game_air_original(void *kart, void *a, void *b, void *c, void *d) GAME;   /* hooks.s */
@@ -706,6 +708,20 @@ void sp_boost_update(void *hud, int flag)
 void *sp_kart_hud(void *entity, void *meta, int zero)
 {
     return entity && entity == watched_kart() && sp.hud ? sp.hud : game_find_component(entity, meta, zero);
+}
+
+/* Called in place of "an entity's position" and "an entity's angles" in the racer's WRONG WAY check
+ * (0xe48cc1, 0xe48cdf in 0xe48c20: the kart's heading against the track's direction there): for the
+ * hidden player kart (under the road, ahead of the ghost) the watched ghost's kart, so the message and
+ * its sound come when the ghost drives the wrong way */
+void sp_wrong_way_position(float *out, void *entity)
+{
+    game_entity_position(out, sp.active && entity == sp.kart && watched_kart() ? watched_kart() : entity);
+}
+
+void sp_wrong_way_angles(float *out, void *entity)
+{
+    game_entity_angles(out, sp.active && entity == sp.kart && watched_kart() ? watched_kart() : entity);
 }
 
 /* Called in place of the game's speed values for the speedometer (0x1041ca0 speed ratio, 0x1041ce0
