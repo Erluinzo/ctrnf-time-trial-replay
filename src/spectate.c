@@ -96,6 +96,7 @@ void sp_race_start(void *manager, void *racer)
     sp.show_pad = 1;
     sp.go_watch = -1;
     sp.root = 0;
+    sp.bar_kart = 0;
     sp.heard_watch = -1;
     sp.sounds_played = 0;
 }
@@ -355,7 +356,7 @@ static void ghost_update(void (*update)(void *, void *), void *manager, void *gh
  * only. Past and future keys are used, so there is no delay. A jump (respawn) is not smoothed. CGhostMoveKey: +0xc position, +0x18 time (1/100 s), +0x1a/+0x1c/+0x1e
  * angles (65536 = one turn). */
 #define SMOOTH 0.15f
-#define JUMP 3000.0f        /* units in 2 x SMOOTH (0.3 s): faster than any kart */
+#define JUMP 6000.0f        /* units in 2 x SMOOTH (0.3 s): 20000 units/s, faster than any kart (falls reach 11000) */
 #define TURN 6.2831853f
 #define ANGLE_UNIT 10430.06f
 

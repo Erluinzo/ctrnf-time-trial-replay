@@ -105,9 +105,12 @@ struct state {
     float lap_starts[8];    /* the watched ghost's lap 2, 3... start times (hud.c) */
     int lap_count;          /* entries in lap_starts */
     int shown_lap;          /* lap the HUD shows, 0 = none yet */
+    void *bar_kart;         /* the kart the boost bar reads (hud.c) */
     void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
     float placing_time;     /* at this time */
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
+    int debug_drift_calls, debug_drift_match, debug_air_calls;   /* DEBUG */
+    void *debug_drift_kart;
     int debug_focus;        /* DEBUG: ghost menu focus gains while sp.screen */
     int debug_n;            /* DEBUG: names of the last sounds started (tools) */
     const char *debug_names[32];

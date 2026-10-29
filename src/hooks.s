@@ -133,3 +133,29 @@ game_pad_original:
     mov rbp, rsp
     push r15
     jmp game_pad_continue
+
+# 0x1041c60 (kart, float *ratio): a kart's powerslide meter, for the HUD script (getDriftRatio_VSC).
+# Replaced by a jump to sp_drift_ratio (hud.c), which calls this for the game's own value.
+    .globl game_drift_ratio_original
+game_drift_ratio_original:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    push rax
+    jmp game_drift_continue
+
+# 0x1041d90 (kart, ...): a kart's air time values, for the HUD script (getAirTimeData_VSC): same, for sp_air_data.
+    .globl game_air_original
+game_air_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_air_continue
+
+# 0xe32050 (racer HUD, bar style): gives the boost bar's script the HUD's kart: same, for sp_hud_bar.
+    .globl game_hud_bar
+game_hud_bar:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_hud_bar_continue

@@ -35,7 +35,8 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_set_entity_position': 0x3dc8e0, 'game_hud_set_lap': 0xe63f20, 'game_set_entity_angles': 0xbabbf0,
+    'game_set_entity_position': 0x3dc8e0, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_drift_continue': 0x1041c66, 'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
     'game_play_continue': 0x28a6b6, 'game_input_continue': 0xa3b356, 'game_pad_continue': 0x3d4dd6, 'game_fill_ghosts_continue': 0xfceac6,
@@ -44,7 +45,7 @@ GAME = {
     'g_ghost_manager': 0x2abc3d0, 'g_frame': 0x2ab4100, 'g_input_manager': 0x2ac2e90, 'g_players': 0x2ad1160, 'g_kart_manager': 0x2ac57c0,
     'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
     'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_racer_manager': 0x2ad4b70, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'g_minimap_player_vtable': 0x2544ea0,
-    'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
+    'g_kart_move_meta': 0x2ac4580, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
     'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE,
 }
 
@@ -59,6 +60,9 @@ HOOKS = [
     (0xfceac0, '554889e54157', 'e9', 'sp_menu_open', 1),                   # the ghost menu fills its list
     (0xa3b350, '554889e54157', 'e9', 'sp_input', 1),                       # every frame: the controllers are read
     (0x3d4dd0, '554889e54157', 'e9', 'sp_pad_update', 1),                  # every frame: the pad device is read
+    (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
+    (0x1041c60, '554889e55350', 'e9', 'sp_drift_ratio', 1),                # the HUD reads a kart's powerslide meter
+    (0x1041d90, '554889e54157', 'e9', 'sp_air_data', 1),                   # and its air time (jump meter)
     (0xfce60e, 'e88d000000', 'e8', 'sp_ghost_move', 0),                    # every frame, each ghost: its movement
     (0xfce619, 'e8e2030000', 'e8', 'sp_ghost_inputs', 0),                  # and its inputs
     (0xfce836, 'e8a5e040ff', 'e8', 'sp_place_position', 0),                # a ghost kart is placed: position
