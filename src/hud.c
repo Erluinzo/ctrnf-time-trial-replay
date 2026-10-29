@@ -386,12 +386,27 @@ static void hide_player_icon(void)
 /* The race clock (CRaceClockComponent on the world entity, +0x28 _raceTimer) to `seconds`. The timer
  * counts ticks of 1/8192 s: elapsed = (now, or its stop tick +0x10 when not running) - start tick
  * (+0xc); +0x14 running, +0x15 paused; vtable +0xb0 = now (as the slide meter reads its timer, 0xe8c740) */
-static void set_race_clock(float seconds)
+/* The race clock's timer (+0x28: 1/8192 s ticks; +0xc start, +0x10 stop, +0x14 running, +0x15 paused,
+ * vtable +0xb0 now), or 0 */
+static void *race_timer(void)
 {
     void *w = world();
     void *clock = w && g_race_clock_meta ? game_find_component(w, g_race_clock_meta, 0) : 0;
     void *timer = clock ? AT(clock, 0x28, void *) : 0;
-    if (!timer || !AT(timer, 0, void *)) return;
+    return timer && AT(timer, 0, void *) ? timer : 0;
+}
+
+/* The game's GO has come: its race clock runs */
+int race_started(void)
+{
+    void *timer = race_timer();
+    return timer && AT(timer, 0x14, uint8_t);
+}
+
+static void set_race_clock(float seconds)
+{
+    void *timer = race_timer();
+    if (!timer) return;
     typedef int32_t now_fn(void *timer);
     int32_t now = AT(timer, 0x14, uint8_t) && !AT(timer, 0x15, uint8_t)
                 ? AT(*(void **)timer, 0xb0, now_fn *)(timer) : AT(timer, 0x10, int32_t);

@@ -181,6 +181,7 @@ static inline float key_time(void *keys, int i)
 /* hud.c */
 void hud_frame(void *manager);
 void hud_late(void);
+int race_started(void);
 void screen_gui(void *project, int show);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);
