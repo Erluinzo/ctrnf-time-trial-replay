@@ -70,14 +70,14 @@ static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150,
 #define DARK_OPACITY 0.45f
 /* The help lines (the button symbols are in the font too, but not the D-pad: its arrows are drawn over
  * the spaces at the start of lines 1 and 2) */
-static const char HELP[4][48] = {"\xee\x80\x83 : PAUSE", "     /       : REWIND / FORWARD",
+static const char HELP[4][48] = {"\xee\x80\x83          : PAUSE", "     /       : REWIND / FORWARD",
     "     /       : SPEED", "\xee\x80\x84 / \xee\x80\x86 : OTHER GHOST"};
 /* Help arrows: line, x, y change, rotation (as the controller's); the up arrow's image sits low */
 static const float HELP_ARROW[4][4] = {{1, 75, 0, 90}, {1, 121, 0, 270}, {2, 74, -2, 180}, {2, 121, 0, 0}};
 #define HELP_ARROW_SCALE 0.7f
 /* Box width change per help line: the box only guesses the text's width (see hud_frame), so the
  * spaces under the arrows move with each line's letters; measured in game */
-static const float HELP_BOX_FIX[4] = {0, 0, -34, 0};
+static const float HELP_BOX_FIX[4] = {-36, 0, -34, 0};
 #define HELP_Y 556.0f
 #define HELP_STEP 34.0f
 
