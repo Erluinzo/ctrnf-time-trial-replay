@@ -747,10 +747,11 @@ float sp_clock(void *manager, float game_time)
     }
     float rate = sp.scrub ? sp.scrub * SCRUB_SPEED : sp.paused ? 0.0f : SPEEDS[sp.speed];
     /* The countdown runs in real time: faster than x1 the ghost would reach its GO before the game
-     * lets the karts go, and its first slides and boosts would be lost. So no faster playback until
-     * the game's GO (a speed chosen before applies then). */
+     * lets the karts go, and its first slides and boosts would be lost; slower, it would still wait
+     * when the lights are green. So the playback is x1 until the game's GO (a speed chosen before
+     * applies then). */
     int started = race_started();
-    if (rate > 1.0f && !started) rate = 1.0f;
+    if (rate > 0.0f && !started) rate = 1.0f;
     float time = sp.time + dt * rate;
     sp.end = end_time(manager);
     if (time > sp.end) time = sp.end;   /* the run stops at the end, and can be rewound */
@@ -767,7 +768,7 @@ float sp_clock(void *manager, float game_time)
     int stopped = sp.paused || (watched && time >= ghost_end(watched));
     if (g_frame && !paused) {
         float speed = sp.scrub < 0 ? 1.0f : sp.scrub > 0 ? SCRUB_SPEED : stopped ? 0.0f : SPEEDS[sp.speed];
-        AT(g_frame, 0x2c, float) = speed > 1.0f && !started ? 1.0f : speed;
+        AT(g_frame, 0x2c, float) = speed > 0.0f && !started ? 1.0f : speed;
         sp.game_speed_set = 1;
     }
     follow(manager);
