@@ -29,6 +29,7 @@ GAME = {
     'game_camera_instance': 0xc4b110, 'game_active_camera': 0xc4b230, 'game_camera_refresh': 0xc8ade0,
     'game_lock_request': 0xc08100, 'game_player_kart': 0xe50f70, 'game_legend_add': 0xa09d30, 'game_string': 0x1574080,
     'game_string_release': 0x1518e30, 'game_menu_prepare': 0xc2e400, 'game_continue_event_new': 0x1255f90,
+    'game_ghost_look_end_new': 0x112da10, 'game_ghost_look_start_new': 0x112d8b0, 'game_send_message': 0xd32160,
     'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_position': 0x268f90,
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
@@ -40,7 +41,7 @@ GAME = {
     # data
     'g_ghost_manager': 0x2abc3d0, 'g_frame': 0x2ab4100, 'g_input_manager': 0x2ac2e90, 'g_players': 0x2ad1160, 'g_kart_manager': 0x2ac57c0,
     'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
-    'g_string_pool': 0x2af2600, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'sp': STATE,
+    'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'sp': STATE,
 }
 
 # (address, original bytes, new instruction, target symbol, padding): each replaces whole instructions

@@ -20,16 +20,27 @@ extern const char g_composition_vtable[] GAME;   /* igGuiComposition */
 #define FILL_SPRITE "[octane_ui_hud_boost_fill.tga]"
 #define FILL_FULL 2.77f                         /* the game's fill scale for a full classic turbo meter */
 #define BAR_TEXTURE_WIDTH 244.0f                /* children are placed from the bar texture's width */
-#define DIM 0.25f                               /* opacity of a button that is not pressed */
+#define DIM 0.4f                                /* opacity of a button that is not pressed */
 static const char HIDE[][40] = {"Timer", "Octane_RacerHud_LapDisplay"};     /* compositions */
 
-/* Virtual controller: button symbols (Unicode private use, see the port's button_prompts.py) */
-enum { PAD_L1, PAD_R1, PAD_SQUARE, PAD_CROSS, PAD_COUNT };
-static const char PAD_TEXT[PAD_COUNT][4] = {"\xee\x80\x84", "\xee\x80\x86", "\xee\x80\x83", "\xee\x80\x80"};
-static const float PAD_POS[PAD_COUNT][2] = {{70, 880}, {330, 880}, {150, 1000}, {250, 1000}};
-#define PAD_SCALE 2.5f
-#define STEER_X 200.0f
-#define STEER_Y 935.0f
+/* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
+ * port's button_prompts.py), each placed by its middle in HUD space. The left stick leans with the
+ * steering; buttons a ghost never records (L2, R2, the touchpad, Triangle, Circle, the right stick)
+ * stay dim, so the pad looks whole. */
+enum { PAD_L2, PAD_R2, PAD_L1, PAD_R1, PAD_TOUCHPAD, PAD_LEFT_STICK, PAD_RIGHT_STICK, PAD_TRIANGLE,
+       PAD_SQUARE, PAD_CIRCLE, PAD_CROSS, PAD_COUNT };
+static const char PAD_TEXT[PAD_COUNT][4] = {"\xee\x80\x87", "\xee\x80\x88", "\xee\x80\x84", "\xee\x80\x86",
+    "\xee\x80\x92", "\xee\x80\x89", "\xee\x80\x8a", "\xee\x80\x82", "\xee\x80\x83", "\xee\x80\x81", "\xee\x80\x80"};
+/* middle x, middle y, symbol width in the font's button image (a fraction of it, igCharMetrics) */
+static const float PAD_AT[PAD_COUNT][3] = {
+    {120, 770, 0.195f}, {380, 770, 0.195f}, {120, 830, 0.285f}, {380, 830, 0.285f}, {250, 880, 0.18f},
+    {120, 905, 0.164f}, {305, 990, 0.164f}, {380, 885, 0.18f}, {335, 930, 0.179f}, {425, 930, 0.18f},
+    {380, 975, 0.164f}};
+#define PAD_SCALE 2.0f
+#define PAD_WIDTH 270.0f        /* HUD pixels per font image width at PAD_SCALE: symbol width = this x fraction */
+#define STICK_LEAN 22.0f        /* the left stick moves this far at full steering */
+#define STEER_X 250.0f
+#define STEER_Y 1040.0f
 /* CGhostSnapshotKey bits: 0-7 steering (s8), 8 accelerate, 9 reverse, 10 brake, 11 first jump,
  * 12 second jump, 13 start drift, 14 race start */
 #define IN_ACCELERATE 0x100
@@ -114,7 +125,7 @@ static void build(void *project, void *root)
     sp.status_text = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, 135.0f);
     void *label = find(root, LABEL_TEMPLATE, 0, 0);
     for (int i = 0; i < PAD_COUNT; i++) {
-        sp.pad[i] = text_piece(project, label, root, PAD_POS[i][0], PAD_POS[i][1]);
+        sp.pad[i] = text_piece(project, label, root, PAD_AT[i][0] - PAD_AT[i][2] * PAD_WIDTH / 2, PAD_AT[i][1]);
         if (!sp.pad[i]) continue;
         game_set_text(sp.pad[i], PAD_TEXT[i]);
         float scale[3] = {PAD_SCALE, PAD_SCALE, 1.0f};
@@ -245,13 +256,20 @@ void hud_frame(void *manager)
     if (sp.status_text) game_set_text(sp.status_text, text);
 
     int bits = inputs(ghost);
-    const int pressed[PAD_COUNT] = {bits & IN_SECOND_JUMP, bits & IN_FIRST_JUMP, bits & (IN_BRAKE | IN_REVERSE),
-                                    bits & IN_ACCELERATE};
-    for (int i = 0; i < PAD_COUNT; i++)
-        if (sp.pad[i]) {
-            game_set_hidden(sp.pad[i], !sp.show_pad);
-            game_set_opacity(sp.pad[i], pressed[i] ? 1.0f : DIM);
-        }
+    float steer = (int8_t)(bits & 0xff) / 127.0f;
+    for (int i = 0; i < PAD_COUNT; i++) {
+        if (!sp.pad[i]) continue;
+        int pressed = i == PAD_L1 ? bits & IN_SECOND_JUMP : i == PAD_R1 ? bits & IN_FIRST_JUMP
+                    : i == PAD_SQUARE ? bits & (IN_BRAKE | IN_REVERSE) : i == PAD_CROSS ? bits & IN_ACCELERATE
+                    : i == PAD_LEFT_STICK ? steer > 0.05f || steer < -0.05f : 0;
+        game_set_hidden(sp.pad[i], !sp.show_pad);
+        game_set_opacity(sp.pad[i], pressed ? 1.0f : DIM);
+    }
+    if (sp.pad[PAD_LEFT_STICK]) {
+        float at[3] = {PAD_AT[PAD_LEFT_STICK][0] - PAD_AT[PAD_LEFT_STICK][2] * PAD_WIDTH / 2 + steer * STICK_LEAN,
+                       PAD_AT[PAD_LEFT_STICK][1], 0.0f};
+        game_set_position(sp.pad[PAD_LEFT_STICK], at);
+    }
     if (sp.steer_bar) game_set_hidden(sp.steer_bar, !sp.show_pad);
-    show_steering((int8_t)(bits & 0xff) / 127.0f);
+    show_steering(steer);
 }

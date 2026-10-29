@@ -2,7 +2,7 @@
 """Prints the last wall-hit sounds the spectator played (state log in src/spectate.h), oldest first."""
 import struct, subprocess, sys
 STATE = 0x800000000 + 0x2beea80
-LOG = 224       # offset of log_n in struct state
+LOG = 192       # offset of log_n in struct state
 pid = int(subprocess.check_output(['pgrep', '-x', 'sacredfire']).split()[0])
 mem = open(f'/proc/{pid}/mem', 'rb')
 def read(at, n):

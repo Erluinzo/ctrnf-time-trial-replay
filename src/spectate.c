@@ -56,7 +56,8 @@ void sp_menu_spectate(void *behavior, void *placeable)
 void sp_race_start(void *manager, void *racer)
 {
     game_start_recording(manager, racer);
-    sp.active = sp.armed && manager;
+    /* Time Trial only: the game's mode, as the race tick checks it (0xea2d90) */
+    sp.active = sp.armed && manager && g_game && AT(g_game, 0xd4c, int32_t) == 2;
     if (!sp.active) return;
     AT(manager, 0x0c, uint8_t) = 0;     /* _isRecording: the race end saves nothing (0xfcefe0) */
     sp.manager = manager;
@@ -69,6 +70,7 @@ void sp_race_start(void *manager, void *racer)
     sp.end = 0.0f;
     sp.watch = 0;
     sp.camera = sp.target = 0;
+    sp.unghosted = 0;
     sp.lock = sp.hud = 0;
     sp.show_pad = 1;
     sp.go_watch = -1;
@@ -217,6 +219,28 @@ static void follow(void *manager)
     sp.camera_sets++;
 }
 
+/* The watched ghost looks like a normal kart: the game's "temporary ghost" messages remove and spawn
+ * again the ghost look effects (common_kart_ghost_timetrial.igz: the same effect list for both). Each
+ * kart gets End and Start in turn only, or the look would be spawned twice. */
+static void send(void *(*factory)(void *pool), void *kart)
+{
+    void *message = factory(0);
+    if (!message) return;
+    game_send_message(message, kart, kart);
+    game_release(message);
+}
+
+static void ghost_look(void *manager)
+{
+    void *list = AT(manager, 0x40, void *);
+    void *target = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
+    if (target == sp.unghosted) return;
+    for (int i = 0; i < count(list); i++)       /* only if that kart still plays */
+        if (sp.unghosted && ghost_kart(item(list, i)) == sp.unghosted) send(game_ghost_look_start_new, sp.unghosted);
+    if (target) send(game_ghost_look_end_new, target);
+    sp.unghosted = target;
+}
+
 /* Every frame while ghosts play: returns the new ghost play time (the game adds the frame time). */
 float sp_clock(void *manager, float game_time)
 {
@@ -240,6 +264,7 @@ float sp_clock(void *manager, float game_time)
     if (time < old) rewind(manager, time);
     sp.time = time;
     follow(manager);
+    ghost_look(manager);
     hud_frame(manager);
     sounds_frame(manager, old, time);
     return time;

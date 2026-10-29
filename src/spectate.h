@@ -20,6 +20,9 @@ extern char *game_string(void *pool, const char *text) GAME;             /* new 
 extern void game_string_release(void *pool, char *header) GAME;
 extern void game_menu_prepare(void *settings, int zero) GAME;
 extern void *game_continue_event_new(void *pool) GAME;
+extern void *game_ghost_look_end_new(void *pool) GAME;      /* CKartEndTemporaryGhostMessage */
+extern void *game_ghost_look_start_new(void *pool) GAME;    /* CKartStartTemporaryGhostMessage */
+extern void game_send_message(void *message, void *target, void *sender) GAME;
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
@@ -32,6 +35,7 @@ extern void *g_vehicle_audio_meta GAME;  /* CVehicleAudioComponent */
 extern void *g_race_settings GAME;
 extern void *g_string_pool GAME;
 extern char *g_gui_manager GAME;
+extern char *g_game GAME;                /* +0xd4c game mode, 2 = Time Trial */
 
 #define LEGEND_L1 5             /* EButtonLegendButton */
 #define SCRUB_SPEED 4.0f        /* D-pad left/right: rewind and fast forward at x4 */
@@ -66,7 +70,7 @@ struct state {
     float go;               /* the watched ghost's race start (its raceStart input), s */
     int go_watch;           /* the ghost go belongs to, -1 = none yet */
     void *root;             /* HUD root our pieces were added to (only compared) */
-    void *time_text, *status_text, *pad[4], *steer_bar, *steer_fill;
+    void *time_text, *status_text, *steer_bar, *steer_fill;
     float steer_center;     /* x of the steering bar's middle, in the fill's parent */
     /* Sounds (sounds.c), in ghost time */
     float heard;            /* wall hits up to this time were checked */
@@ -77,10 +81,12 @@ struct state {
     /* Last wall-hit sounds (tools/sounds.py): name, ghost time, instance or 0 */
     int log_n;
     struct { const char *name; float at; int ok; } log[16];
+    void *pad[11];          /* virtual controller buttons (hud.c) */
+    void *unghosted;        /* the ghost kart shown without its ghost look */
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
-_Static_assert(__builtin_offsetof(struct state, heard) == 204 && __builtin_offsetof(struct state, sounds_played) == 220
-               && __builtin_offsetof(struct state, log_n) == 224 && __builtin_offsetof(struct state, log) == 232,
+_Static_assert(__builtin_offsetof(struct state, heard) == 172 && __builtin_offsetof(struct state, sounds_played) == 188
+               && __builtin_offsetof(struct state, log_n) == 192 && __builtin_offsetof(struct state, log) == 200,
                "tools/peek.py and tools/sounds.py read these offsets");
 extern struct state sp GAME;
 
