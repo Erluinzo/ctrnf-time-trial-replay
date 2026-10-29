@@ -18,7 +18,6 @@ void sp_menu_focus(void *behavior, void *placeable, int gained)
 {
     (void)behavior;
     if (gained) {
-        if (sp.screen) sp.debug_focus++;
         sp.armed = 0;           /* back in the menu: a later Continue is a normal race */
         sp.screen = 0;
         show_preview();
@@ -460,12 +459,6 @@ void sp_place_position(void *entity, const float *position)
     float smooth[3];
     if (sp.placing && smooth_pose(sp.placing, sp.placing_time, 0, smooth)) position = smooth;
     game_set_entity_position(entity, position);
-    void *list = sp.placing ? AT(sp.manager, 0x40, void *) : 0;
-    if (list && sp.watch < count(list) && item(list, sp.watch) == sp.placing) {    /* DEBUG log */
-        float *row = sp.place_log[sp.place_n % 24];
-        row[0] = sp.placing_time, row[1] = position[0], row[2] = position[1], row[3] = position[2];
-        sp.place_n++;
-    }
 }
 
 void sp_place_angles(void *entity, const float *angles, int zero)
@@ -555,23 +548,37 @@ static void hide_player(void)
 }
 
 /* The level's triggers show parts of the track (e.g. Electron Avenue's road) as the player's kart
- * comes near, so the hidden kart goes along the watched ghost's own path, CARRY_BEHIND s earlier:
- * always on the track (never respawned), behind the camera, near enough for the triggers. It does
- * not move by itself (immobile, speed 0, air time 0), makes no sound (sounds.c), and its laps, race
- * end and "wrong way" are ignored (sp_player_lap, sp_player_finished, hud.c). */
-#define CARRY_BEHIND 0.6f
+ * comes near, so the hidden kart is put just behind the camera every frame: near the watched ghost,
+ * never in view. The camera's position is its +0x30; "behind" is away from the ghost. The kart does
+ * not move by itself (immobile, speed 0, air time 0), makes no sound (sounds.c) and no controller
+ * rumble (sp_rumble), and its laps, race end and "wrong way" are ignored (sp_player_lap,
+ * sp_player_finished, hud.c). */
+#define CARRY_BEHIND 400.0f
 static void carry_player(void *manager)
 {
     void *list = AT(manager, 0x40, void *);
-    void *ghost = sp.watch < count(list) ? item(list, sp.watch) : 0;
+    void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
+    if (!kart || !sp.kart || !sp.camera || sp.target != kart) return;
+    const float *eye = &AT(sp.camera, 0x30, float), *ghost = &AT(kart, 0x20, float);
+    float away[3] = {eye[0] - ghost[0], eye[1] - ghost[1], eye[2] - ghost[2]};
+    float d = away[0] * away[0] + away[1] * away[1] + away[2] * away[2], r = d > 1.0f ? d : 1.0f;
+    for (int i = 0; i < 20; i++) r = 0.5f * (r + d / r);     /* square root */
     float at[3];
-    if (!ghost || !sp.kart || !smooth_pose(ghost, sp.time - CARRY_BEHIND, 0, at)) return;
+    for (int i = 0; i < 3; i++) at[i] = eye[i] + (d > 1.0f ? away[i] / r * CARRY_BEHIND : 0.0f);
     game_set_entity_position(sp.kart, at);
     AT(sp.kart, 0x60, float) = AT(sp.kart, 0x64, float) = AT(sp.kart, 0x68, float) = 0.0f;
     void *move = g_kart_move_meta ? game_find_component(sp.kart, g_kart_move_meta, 0) : 0;
     if (move) AT(move, 0x248, float) = 0.0f;       /* air time: no wheel flames */
     void *audio = g_vehicle_audio_meta ? game_find_component(sp.kart, g_vehicle_audio_meta, 0) : 0;
     if (audio) AT(audio, 0x7c, float) = 0.0f;      /* the engine's wanted volume */
+}
+
+/* Called in place of the game's "start a controller rumble" (0xc04ed0): ghosts never rumble, so in
+ * a spectator run every rumble comes from the hidden player kart */
+void *sp_rumble(void *a, void *b, int c, void *d, void *e, void *f)
+{
+    if (sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t)) return 0;
+    return game_rumble_original(a, b, c, d, e, f);
 }
 
 /* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"

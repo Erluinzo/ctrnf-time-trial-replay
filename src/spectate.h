@@ -35,6 +35,7 @@ extern void *game_get_driver(void *kart) GAME;
 extern void game_hud_set_lap(void *hud, int lap) GAME;  /* lap display; the final lap effect once (+0x88) */
 extern void game_racer_finished(void *system, void *racer) GAME;
 extern void game_kart_immobile(void *kart, int flag) GAME;  /* setImmobileBehavior_VSC */
+extern void *game_rumble_original(void *a, void *b, int c, void *d, void *e, void *f) GAME;    /* hooks.s */
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
@@ -118,13 +119,6 @@ struct state {
     void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
     float placing_time;     /* at this time */
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
-    int debug_drift_calls, debug_drift_match, debug_air_calls;   /* DEBUG */
-    void *debug_drift_kart;
-    int debug_focus;        /* DEBUG: ghost menu focus gains while sp.screen */
-    int debug_n;            /* DEBUG: names of the last sounds started (tools) */
-    const char *debug_names[8];
-    int place_n;            /* DEBUG: placements of the watched ghost logged */
-    float place_log[24][4]; /* DEBUG: time, x, y, z of each */
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212

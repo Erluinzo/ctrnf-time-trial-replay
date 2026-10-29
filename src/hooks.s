@@ -168,3 +168,11 @@ game_legend_add:
     mov rbp, rsp
     push r15
     jmp game_legend_continue
+
+# 0xc04ed0: starts a controller rumble: same as above, for sp_rumble.
+    .globl game_rumble_original
+game_rumble_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_rumble_continue

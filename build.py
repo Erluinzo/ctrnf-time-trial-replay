@@ -35,7 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_set_entity_position': 0x3dc8e0, 'game_racer_finished': 0xf351b0, 'game_kart_immobile': 0x10425b0, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_set_entity_position': 0x3dc8e0, 'game_racer_finished': 0xf351b0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_drift_continue': 0x1041c66, 'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -61,6 +61,7 @@ HOOKS = [
     (0xa3b350, '554889e54157', 'e9', 'sp_input', 1),                       # every frame: the controllers are read
     (0x3d4dd0, '554889e54157', 'e9', 'sp_pad_update', 1),                  # every frame: the pad device is read
     (0xa09d30, '554889e54157', 'e9', 'sp_legend_add', 1),                  # a button is added to a screen's legend
+    (0xc04ed0, '554889e54157', 'e9', 'sp_rumble', 1),                      # a controller rumble starts
     (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
     (0xf350b8, 'e9f3000000', 'e9', 'sp_player_finished', 0),               # the player finishes the race
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
@@ -72,7 +73,7 @@ HOOKS = [
     (0xfce997, 'e854d2bdff', 'e8', 'sp_place_angles', 0),                  # and angles
 ]
 
-CFLAGS = ['-c', '-O2', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protector',
+CFLAGS = ['-c', '-Os', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protector',
           '-fno-asynchronous-unwind-tables', '-fno-unwind-tables', '-fcf-protection=none', '-mno-red-zone',
           '-fvisibility=hidden', '-fno-tree-loop-distribute-patterns', '-Wall', '-Wextra', '-Werror']
 # Only RIP-relative references: the game image is not loaded at a fixed address.

@@ -657,9 +657,6 @@ void sp_hud_bar(void *hud, int style)
 void sp_drift_ratio(void *kart, float *ratio)
 {
     game_drift_ratio_original(kart, ratio);
-    sp.debug_drift_calls++;
-    sp.debug_drift_kart = kart;
-    if (kart == watched_kart()) sp.debug_drift_match++;
     if (kart && kart == watched_kart()) *ratio = drift_ratio(watched_ghost(), sp.time);
 }
 
@@ -667,9 +664,6 @@ void sp_drift_ratio(void *kart, float *ratio)
  * ghost's air time, put for the call in the kart component's air time (+0x248) */
 void sp_air_data(void *kart, void *a, void *b, void *c, void *d)
 {
-    sp.debug_air_calls++;
-    sp.debug_drift_kart = kart;
-    if (kart == watched_kart()) sp.debug_drift_match++;
     void *move = kart && kart == watched_kart() && g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
     if (!move) {
         game_air_original(kart, a, b, c, d);
