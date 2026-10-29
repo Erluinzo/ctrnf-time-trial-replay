@@ -1,4 +1,4 @@
-Ghost Spectator 0.3.0
+Time Trial Spectator Mode 0.3.0
 Author: Onur
 
 Watch Time Trial ghosts like a replay: follow any ghost, switch between

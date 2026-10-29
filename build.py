@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the ghost spectator patch: package/patches/GhostSpectator.xml, and a switched-on test copy
+"""Builds the Time Trial Spectator Mode patch: package/patches/TimeTrialSpectator.xml, and a switched-on test copy
 in the game's patches folder.
 
   python3 build.py [path/to/eboot.elf]     (default: ../CTRNF/out/eboot.elf)
@@ -12,9 +12,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ELF = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / 'CTRNF/out/eboot.elf'
-XML = HERE / 'package/patches/GhostSpectator.xml'
+XML = HERE / 'package/patches/TimeTrialSpectator.xml'
 # The owner tests each build at once: a copy goes into the game's patches folder, switched on.
-TEST_COPY = HERE.parent / 'CTRNF/patches/GhostSpectator.xml'
+TEST_COPY = HERE.parent / 'CTRNF/patches/TimeTrialSpectator.xml'
 VERSION = '0.3.0'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
@@ -155,12 +155,12 @@ def main():
 
     xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <!-- Built by build.py from src/: edit those, not this file.
-     Ghost spectator: L1 in the Time Trial ghost menu starts a run that only plays the chosen ghosts.
+     Time Trial Spectator Mode: L1 in the Time Trial ghost menu starts a run that only plays the chosen ghosts.
      The camera follows one ghost; time can be paused, rewound, sped up or slowed down. The last
      lines are the new code ({len(code)} bytes). -->
 <Patch>
   <TitleID><ID>CUSA13795</ID></TitleID>
-  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Ghost Spectator"
+  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Time Trial Spectator Mode"
             Note="Watch Time Trial ghosts: L1 in the ghost menu. L1/R1 switch ghost, Square pause, D-pad time and speed."
             Author="Onur" PatchVer="{VERSION}" AppVer="01.21" AppElf="eboot.bin">
     <PatchList>

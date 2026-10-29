@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Built by build.py from src/: edit those, not this file.
-     Ghost spectator: L1 in the Time Trial ghost menu starts a run that only plays the chosen ghosts.
+     Time Trial Spectator Mode: L1 in the Time Trial ghost menu starts a run that only plays the chosen ghosts.
      The camera follows one ghost; time can be paused, rewound, sped up or slowed down. The last
      lines are the new code (16712 bytes). -->
 <Patch>
   <TitleID><ID>CUSA13795</ID></TitleID>
-  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Ghost Spectator"
+  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Time Trial Spectator Mode"
             Note="Watch Time Trial ghosts: L1 in the ghost menu. L1/R1 switch ghost, Square pause, D-pad time and speed."
             Author="Onur" PatchVer="0.3.0" AppVer="01.21" AppElf="eboot.bin">
     <PatchList>

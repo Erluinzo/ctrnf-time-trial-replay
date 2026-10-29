@@ -1,4 +1,4 @@
-/* Ghost spectator: runs inside the game (USA CUSA13795 1.21), called from the hooks in hooks.s.
+/* Time Trial Spectator Mode: runs inside the game (USA CUSA13795 1.21), called from the hooks in hooks.s.
  *
  * - Ghost menu: L1 on an entry starts the race like Continue, with spectating switched on.
  * - Race start: nothing is recorded, so the run saves no ghost and unlocks nothing.

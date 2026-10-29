@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "id": "ghost-spectator",
-  "name": "Ghost Spectator",
+  "id": "time-trial-spectator",
+  "name": "Time Trial Spectator Mode",
   "version": "0.3.0",
   "author": "Onur",
   "description": "Watch Time Trial ghosts like a replay: L1 in the ghost menu. Follow and switch ghosts, pause, rewind, change the speed, see the ghost's inputs and hear its kart like your own.",
@@ -14,7 +14,7 @@
   },
   "operations": [],
   "patches": [
-    "patches/GhostSpectator.xml"
+    "patches/TimeTrialSpectator.xml"
   ],
   "files": []
 }

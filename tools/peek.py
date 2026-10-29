@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prints the ghost spectator's state in the running game (Linux; reads /proc/PID/mem).
+"""Prints the spectator mode's state in the running game (Linux; reads /proc/PID/mem).
 
 The layout must match `struct state` in src/spectate.c.
 """

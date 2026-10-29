@@ -1,4 +1,4 @@
-# Ghost Spectator (CTR Nitro-Fueled, OCTR PC port)
+# Time Trial Spectator Mode (CTR Nitro-Fueled, OCTR PC port)
 
 A game patch by Onur: watch Time Trial ghosts like a replay. Follow any ghost, switch between ghosts,
 pause, rewind, fast forward or slow down, and see and hear what the driver does.
@@ -32,7 +32,7 @@ The race starts without you: the camera follows a ghost.
 
 ## Install
 In the OCTR launcher: Mods > Add files, choose the ZIP from the
-[releases](https://github.com/Erluinzo/ctrnf-ghost-spectator/releases), enable it, fully restart the game.
+[releases](https://github.com/Erluinzo/ctrnf-time-trial-spectator/releases), enable it, fully restart the game.
 Works together with Ghost Sharing (shared ghosts can be watched too).
 
 ## Limits
@@ -52,7 +52,7 @@ The patch adds hooks to the game:
 
 ## Building (developers)
 Needs the OCTR checkout at `../CTRNF` (with `out/eboot.elf` from a build), gcc and binutils.
-`python3 build.py` writes `package/patches/GhostSpectator.xml`.
+`python3 build.py` writes `package/patches/TimeTrialSpectator.xml`.
 
 ## License
 MIT, see `LICENSE`. Copyright (c) 2026 Onur.
