@@ -91,6 +91,7 @@ void sp_race_start(void *manager, void *racer)
     sp.end = 0.0f;
     sp.watch = 0;
     sp.camera = sp.target = 0;
+    sp.target_placed = 0;
     sp.unghosted = 0;
     sp.lock = sp.hud = 0;
     sp.show_pad = 1;
@@ -452,13 +453,45 @@ static int smooth_pose(void *ghost, float t, int pose, float *out)
     return 1;
 }
 
+/* Called in place of "set position" where the game gives a kart its physics body's position after
+ * the physics step (0xe96691). The body of a ghost kart can touch the track (e.g. Electron Avenue's
+ * big jump at 0:07.39) and be pushed up to 100 units for a frame: the watched kart gets where it is on
+ * the path instead: its placement this frame, moved by the speed it was given (sp_place_position). */
+void sp_body_sync(void *entity, const float *position)
+{
+    float at[3];
+    if (sp.active && entity && entity == sp.target && sp.target_placed && g_frame) {
+        float dt = AT(g_frame, 0x24, float);    /* the game's frame time, as the physics step */
+        for (int i = 0; i < 3; i++) at[i] = sp.placed[i] + sp.set_v[i] * dt;
+        position = at;
+    }
+    game_set_entity_position(entity, position);
+}
+
 /* Called in place of the game's "set position" and "set angles" when it places a ghost kart (0xfce836,
  * 0xfce997, in 0xfce6a0) */
 void sp_place_position(void *entity, const float *position)
 {
-    float smooth[3];
-    if (sp.placing && smooth_pose(sp.placing, sp.placing_time, 0, smooth)) position = smooth;
-    game_set_entity_position(entity, position);
+    float smooth[3], ahead[3];
+    if (!sp.placing || !smooth_pose(sp.placing, sp.placing_time, 0, smooth)) {
+        game_set_entity_position(entity, position);
+        return;
+    }
+    void *list = AT(sp.manager, 0x40, void *);
+    int watched = sp.watch < count(list) && item(list, sp.watch) == sp.placing;
+    game_set_entity_position(entity, smooth);
+    /* Its speed (+0x60) along the same path: the physics step after this moves the kart by speed x
+     * frame time, and the game's own speed value jumps at the keys (one frame jumps of up to 100
+     * units in the air). Ghost time runs as fast as game time (sp_clock sets the game speed), except
+     * while rewinding: x4 backwards at game speed 1. */
+    if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead)) {
+        float rate = sp.scrub < 0 ? -SCRUB_SPEED : 1.0f;
+        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = (ahead[i] - smooth[i]) / 0.01f * rate;
+    }
+    if (watched) {      /* for sp_body_sync */
+        for (int i = 0; i < 3; i++) sp.placed[i] = smooth[i], sp.set_v[i] = AT(entity, 0x60 + 4 * i, float);
+        sp.target_placed = 1;
+    }
 }
 
 void sp_place_angles(void *entity, const float *angles, int zero)
