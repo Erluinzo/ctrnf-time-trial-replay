@@ -98,6 +98,7 @@ void sp_race_start(void *manager, void *racer)
     sp.go_watch = -1;
     sp.root = 0;
     sp.bar_kart = 0;
+    sp.pad_at = -10.0f;
     sp.heard_watch = -1;
     sp.sounds_played = 0;
 }
@@ -649,6 +650,23 @@ void sp_turbo_start(void *turbo)
         AT(turbo, 0x24, float) = AT(settings, 0x18, float) + 1.0f;    /* above the threshold */
     }
     game_turbo_start(turbo);
+}
+
+/* Called in place of the kart's "boost from the boost pad under it" (0xe56595, 0xe57120), made when the
+ * ground under the kart changes. Slower than x1 the ghost kart's ground contact can drop for a frame on
+ * a pad, which gave a second boost (seen at x0.1). Slow playback should look like x1: no new pad boost
+ * for the watched kart within PAD_REPEAT s of ghost time (pads at x1 were 0.83 s apart or more). */
+#define PAD_REPEAT 0.6f
+void sp_pad_boost(void **out, void *controller, void **material)
+{
+    int watched = sp.active && controller && AT(controller, 0x18, void *) == sp.target;
+    int slow = !sp.scrub && SPEEDS[sp.speed] < 1.0f;
+    if (watched && slow && sp.time > sp.pad_at && sp.time - sp.pad_at < PAD_REPEAT) {
+        *out = 0;
+        return;
+    }
+    game_pad_boost(out, controller, material);
+    if (watched && *out) sp.pad_at = sp.time;
 }
 
 /* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"
