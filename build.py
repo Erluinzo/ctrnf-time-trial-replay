@@ -27,7 +27,7 @@ GAME = {
     'game_handle_resolve': 0x149fca0, 'game_make_handle': 0x14bea20, 'game_release': 0x149d260,
     'game_find_component': 0x3dbf90, 'game_ghost_reset': 0xfce410, 'game_start_recording': 0xfcb9a0,
     'game_camera_instance': 0xc4b110, 'game_active_camera': 0xc4b230, 'game_camera_refresh': 0xc8ade0,
-    'game_lock_request': 0xc08100, 'game_player_kart': 0xe50f70, 'game_legend_add': 0xa09d30, 'game_string': 0x1574080,
+    'game_lock_request': 0xc08100, 'game_player_kart': 0xe50f70, 'game_legend_continue': 0xa09d36, 'game_string': 0x1574080,
     'game_string_release': 0x1518e30, 'game_menu_prepare': 0xc2e400, 'game_continue_event_new': 0x1255f90,
     'game_ghost_look_end_new': 0x112da10, 'game_ghost_look_start_new': 0x112d8b0, 'game_send_message': 0xd32160,
     'game_set_entity_hidden': 0x3def00, 'game_find_driver': 0xf9c610,
@@ -60,6 +60,7 @@ HOOKS = [
     (0xfceac0, '554889e54157', 'e9', 'sp_menu_open', 1),                   # the ghost menu fills its list
     (0xa3b350, '554889e54157', 'e9', 'sp_input', 1),                       # every frame: the controllers are read
     (0x3d4dd0, '554889e54157', 'e9', 'sp_pad_update', 1),                  # every frame: the pad device is read
+    (0xa09d30, '554889e54157', 'e9', 'sp_legend_add', 1),                  # a button is added to a screen's legend
     (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
     (0xf350b8, 'e9f3000000', 'e9', 'sp_player_finished', 0),               # the player finishes the race
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart

@@ -60,6 +60,7 @@ void sp_menu_spectate(void *behavior, void *placeable)
     sp.armed = 1;
     sp.screen = 1;              /* sp_input presses Ready on the next screen */
     sp.screen_frames = 0;
+    sp.screen_project = 0;
     sp.countdown_ticks = 0;
     game_menu_prepare(g_race_settings, 0);
     void *event = game_continue_event_new(0);
@@ -200,6 +201,7 @@ static void screen_frame(void *ctrl)
      * freed when the level loads, after the countdown's GO (sp_countdown_go) */
     sp.preview = (void *)1;
     kart_hidden(preview_kart(), 1);
+    if (sp.screen_project) screen_gui(sp.screen_project, sp.screen < 3);
     if (sp.screen == 1) {
         if (sp.countdown_ticks) {
             sp.screen = 2;
@@ -228,6 +230,14 @@ static void screen_frame(void *ctrl)
     } else if (sp.screen_frames % 30 == 0) {
         press(B_CIRCLE);
     }
+}
+
+/* Called in place of the game's "add a button to a screen's legend" (0xa09d30): the character screen
+ * adds its own when it opens, which gives the patch its GUI project */
+void sp_legend_add(void *project, int button, char **text, int always)
+{
+    if (sp.screen) sp.screen_project = project;
+    game_legend_add(project, button, text, always);
 }
 
 /* Called in place of the input manager's update (0xa3b350), every frame */

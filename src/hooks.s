@@ -160,3 +160,11 @@ game_hud_bar:
     push r15
     jmp game_hud_bar_continue
 
+
+# 0xa09d30 (project, button, &text, always): adds a button to a screen's legend: same, for sp_legend_add.
+    .globl game_legend_add
+game_legend_add:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_legend_continue

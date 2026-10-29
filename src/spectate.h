@@ -106,6 +106,8 @@ struct state {
     uint64_t forced;        /* 1 << B_ button the patch pressed this frame (released on the next), 0 = none */
     int backs_heard;        /* "back" sounds heard in step 3 (sounds.c) */
     void *preview;          /* 1 = the kart on the character screen is hidden */
+    void *screen_project;   /* the character screen's GUI project (its legend, sp_legend_add) */
+    void *screen_text;      /* "SPECTATOR MODE" on it (hud.c) */
     float lap_starts[8];    /* the watched ghost's lap 2, 3... start times (hud.c) */
     int lap_count;          /* entries in lap_starts */
     int shown_lap;          /* lap the HUD shows, 0 = none yet */
@@ -173,6 +175,7 @@ static inline float key_time(void *keys, int i)
 /* hud.c */
 void hud_frame(void *manager);
 void hud_late(void);
+void screen_gui(void *project, int show);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);
 /* spectate.c */

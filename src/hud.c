@@ -67,7 +67,7 @@ static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150,
 /* The help lines (the button symbols are in the font too) */
 static const char HELP[4][48] = {"\xee\x80\x83 PAUSE", "D-PAD LEFT / RIGHT: REWIND / FORWARD",
     "D-PAD UP / DOWN: SPEED", "\xee\x80\x84 / \xee\x80\x86: OTHER GHOST"};
-#define HELP_Y 520.0f
+#define HELP_Y 556.0f
 #define HELP_STEP 34.0f
 
 /* CGhostSnapshotKey bits: 0-7 steering (s8), 8 accelerate, 9 reverse, 10 brake, 11 first jump,
@@ -417,6 +417,41 @@ static void lap_lines(void *root, void *ghost)
             put_time(text, lines[i]);
             game_set_text(sp.lap_line[i], text);
         }
+    }
+}
+
+/* A new name for a copied piece: game scripts find pieces by name, and would write into the copy */
+static void rename(void *placeable, const char *name)
+{
+    char *old = AT(placeable, 0x28, char *);
+    AT(placeable, 0x28, char *) = game_string(g_string_pool, name);
+    if (old) game_string_release(g_string_pool, old - 0x10);
+}
+
+/* The character screen after L1 (spectate.c): no loading circle where the (hidden) character would
+ * be, and in its place "SPECTATOR MODE" in the screen's big countdown font. show 0: the message is
+ * taken away (the screen is used for normal races too). */
+void screen_gui(void *project, int show)
+{
+    void *top = project ? AT(project, 0x10, void *) : 0;
+    void *root = top ? content(top) : 0;
+    if (!root) return;
+    void *load = find(root, "Octane_Customization_LoadIcon", 1, 0);
+    if (load && show) game_set_hidden(load, 1);
+    if (show && (!sp.screen_text || !is_child(root, sp.screen_text))) {
+        void *template = find(root, "[ReadyCountdownText]", 0, 0);
+        sp.screen_text = template ? copy(project, template, root) : 0;
+        if (sp.screen_text) {
+            rename(sp.screen_text, "[SpectatorModeText]");
+            AT(sp.screen_text, 0xa0, int32_t) = AT(sp.screen_text, 0xa4, int32_t) = 0;    /* from the top left */
+            float pivot[3] = {0.5f, 0.5f, 0.5f}, at[3] = {500.0f, 580.0f, 0.0f};
+            game_set_pivot(sp.screen_text, pivot);
+            game_set_position(sp.screen_text, at);
+        }
+    }
+    if (sp.screen_text && is_child(root, sp.screen_text)) {
+        game_set_hidden(sp.screen_text, !show);
+        game_set_text(sp.screen_text, "SPECTATOR MODE");    /* every frame: the countdown writes into it too */
     }
 }
 
