@@ -154,6 +154,7 @@ static void show_preview(void)
 /* The countdown's GO: the level is about to load, the kart stays hidden and is not used again */
 void sp_countdown_go(void)
 {
+    if (sp.screen_project) screen_gui(sp.screen_project, 0);     /* the message goes before "GO!" */
     sp.screen = 0;
     sp.preview = 0;
 }

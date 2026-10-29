@@ -429,7 +429,7 @@ static void rename(void *placeable, const char *name)
 }
 
 /* The character screen after L1 (spectate.c): no loading circle where the (hidden) character would
- * be, and in its place "SPECTATOR MODE" in the screen's big countdown font. show 0: the message is
+ * be, and in its place "SPECTATOR MODE" in the font of the screen's "READY!". show 0: the message is
  * taken away (the screen is used for normal races too). */
 void screen_gui(void *project, int show)
 {
@@ -439,7 +439,7 @@ void screen_gui(void *project, int show)
     void *load = find(root, "Octane_Customization_LoadIcon", 1, 0);
     if (load && show) game_set_hidden(load, 1);
     if (show && (!sp.screen_text || !is_child(root, sp.screen_text))) {
-        void *template = find(root, "[ReadyCountdownText]", 0, 0);
+        void *template = find(root, "[Ready]", 0, 0);      /* "READY!": the same font, not animated */
         sp.screen_text = template ? copy(project, template, root) : 0;
         if (sp.screen_text) {
             rename(sp.screen_text, "[SpectatorModeText]");
@@ -451,7 +451,7 @@ void screen_gui(void *project, int show)
     }
     if (sp.screen_text && is_child(root, sp.screen_text)) {
         game_set_hidden(sp.screen_text, !show);
-        game_set_text(sp.screen_text, "SPECTATOR MODE");    /* every frame: the countdown writes into it too */
+        game_set_text(sp.screen_text, "SPECTATOR MODE");
     }
 }
 
