@@ -466,15 +466,12 @@ static int smooth_pose(void *ghost, float t, int pose, float *out)
 /* Called in place of "set position" where the game gives a kart its physics body's position after
  * the physics step (0xe96691). The body of a ghost kart can touch the track (e.g. Electron Avenue's
  * big jump at 0:07.39) and be pushed up to 100 units for a frame: the watched kart gets where it is on
- * the path instead: its placement this frame, moved by its motion in this frame (sp_place_position). */
+ * the path instead: its placement at this frame's play time (sp_place_position). Not moved on by the
+ * frame time as the physics step does: after an uneven frame (a 23 ms stall at 7.37) that put it up
+ * to 90 units off for a frame. */
 void sp_body_sync(void *entity, const float *position)
 {
-    float at[3];
-    if (sp.active && entity && entity == sp.target && sp.target_placed && g_frame) {
-        float dt = AT(g_frame, 0x24, float);    /* the game's frame time, as the physics step */
-        for (int i = 0; i < 3; i++) at[i] = sp.placed[i] + sp.set_v[i] * dt;
-        position = at;
-    }
+    if (sp.active && entity && entity == sp.target && sp.target_placed) position = sp.placed;
     game_set_entity_position(entity, position);
 }
 
@@ -493,14 +490,10 @@ void sp_place_position(void *entity, const float *position)
     /* Its speed (+0x60) along the same path: the game's own speed value jumps at the keys. The speed
      * always points forward, as the camera looks along it (backwards while rewinding, it swung to the
      * front of the kart). */
-    float v[3] = {0};
     if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead))
-        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = v[i] = (ahead[i] - smooth[i]) / 0.01f;
-    /* For sp_body_sync: the motion in this frame. Ghost time runs as fast as game time (sp_clock sets
-     * the game speed), except while rewinding: x4 backwards at game speed 1. */
-    if (watched) {
-        float rate = sp.scrub < 0 ? -SCRUB_SPEED : 1.0f;
-        for (int i = 0; i < 3; i++) sp.placed[i] = smooth[i], sp.set_v[i] = v[i] * rate;
+        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = (ahead[i] - smooth[i]) / 0.01f;
+    if (watched) {      /* for sp_body_sync */
+        for (int i = 0; i < 3; i++) sp.placed[i] = smooth[i];
         sp.target_placed = 1;
     }
 }

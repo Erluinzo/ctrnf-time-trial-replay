@@ -121,7 +121,7 @@ struct state {
     int shown_lap;          /* lap the HUD shows, 0 = none yet */
     void *bar_kart;         /* the kart the boost bar reads (hud.c) */
     void *lap_line[7];      /* copies of the game timer's lap lines (hud.c) */
-    float placed[3], set_v[3];  /* the watched kart's placement and motion this frame (sp_body_sync) */
+    float placed[3];        /* the watched kart's placement this frame (sp_body_sync) */
     int target_placed;      /* placed[] is set */
     void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
     float placing_time;     /* at this time */
