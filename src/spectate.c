@@ -730,6 +730,12 @@ void sp_wrong_way(void *hud, int on)
     game_wrong_way(hud, on && !sp.active);
 }
 
+/* The game's speed for a stopped playback: not 0, as quitting from a level whose last frame had no
+ * game time at all left the main thread waiting for the animation thread forever (0x99c63f) on the
+ * loading screen. The game clock still stands (its ticks are whole: 8192 per second x frame time x
+ * speed rounds down to 0). */
+#define STOPPED 1.0e-6f
+
 /* Every frame while ghosts play: returns the new ghost play time (the game adds the frame time). */
 float sp_clock(void *manager, float game_time)
 {
@@ -762,13 +768,13 @@ float sp_clock(void *manager, float game_time)
     if (time < old) rewind(manager, time);
     sp.time = time;
     /* The game's own speed (frame times +0x2c _gameSpeed) follows the playback, so animations,
-     * effects and the world stop and change speed with the karts: 0 while paused or when the
+     * effects and the world stop and change speed with the karts: STOPPED while paused or when the
      * watched ghost is at its end, the playback speed while playing, x1 while rewinding */
     void *watched = sp.watch < count(AT(manager, 0x40, void *)) ? item(AT(manager, 0x40, void *), sp.watch) : 0;
     int stopped = sp.paused || (watched && time >= ghost_end(watched));
     if (g_frame && !paused) {
-        float speed = sp.scrub < 0 ? 1.0f : sp.scrub > 0 ? SCRUB_SPEED : stopped ? 0.0f : SPEEDS[sp.speed];
-        AT(g_frame, 0x2c, float) = speed > 0.0f && !started ? 1.0f : speed;
+        float speed = sp.scrub < 0 ? 1.0f : sp.scrub > 0 ? SCRUB_SPEED : stopped ? STOPPED : SPEEDS[sp.speed];
+        AT(g_frame, 0x2c, float) = speed > STOPPED && !started ? 1.0f : speed;
         sp.game_speed_set = 1;
     }
     follow(manager);
