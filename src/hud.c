@@ -573,12 +573,13 @@ void hud_frame(void *manager)
         at = put_number(at, count(list), 1);
         at = put(at, "  ");
     }
-    /* the speed only for a moment after a change; pause, rewind and forward while they last */
+    /* the speed while it is not x1, x1 only for a moment after a change; pause, rewind and forward
+     * while they last */
     static const char SPEED_TEXT[][8] = {"x0.1", "x0.5", "x1", "x2", "x3", "x4"};
     float dt = g_frame ? AT(g_frame, 0x18, float) : 0.0f;
     if (sp.speed_shown > 0.0f) sp.speed_shown -= dt > 0.1f ? 0.1f : dt;
     at = put(at, sp.scrub < 0 ? "REWIND x4" : sp.scrub > 0 ? "FORWARD x4" : sp.paused ? "PAUSED"   /* the font has no < > */
-                 : sp.speed_shown > 0.0f ? SPEED_TEXT[sp.speed] : "");
+                 : sp.speed != NORMAL_SPEED || sp.speed_shown > 0.0f ? SPEED_TEXT[sp.speed] : "");
     *at = 0;
     /* The text is right-aligned in its box and shrinks when it does not fit (the template's asset, shared
      * with the game's lap counter, sets this): the box gets about the width of this text, so the line
