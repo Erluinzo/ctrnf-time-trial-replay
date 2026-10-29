@@ -15,11 +15,16 @@ ELF addresses of `CTRNF/out/eboot.elf`. Research before the tests: `kart-events.
   instead of `_NPC` (+0x70); +0x7c wanted volume, +0x88 current. Watched ghost: 1 / volume 1 (0 when paused). Others: keep 1
   only until +0x88 reaches 0, then 0 (the flag also makes surface sounds `_PLR`; a `_PLR` loop left un-updated drones at its
   last volume). Ghost engine mode = 0xb24f80 (controller +0x34 set: a velocity-driven mode).
-- **Wall hits**: ghosts have no collisions, so the game has none for them: `wall_hits()` = speed loss > 700 units/s in 0.3 s
-  without brake -> `COM_VEH_Impact_Med/Hard_PLR_set` (from `veh_common_bank`, played with 0x1023c90 at the ghost), then after
-  0.2 s `VO1_PLR_BeenHit_Light` by name on the driver (0x1024340). Tested with a faked stop only (no Crash Cove ghost hits a
-  wall). Owner offered (~03:35) to record a ghost with wall hits, falls, out of bounds: use it to tune / check the wall-hit
-  animation idea (see queued-tasks.md).
+- **Wall hits**: ghosts have no collisions, so the game has none for them. Measured on the player's kart (scripted crashes,
+  positions logged at 100 Hz, game sounds logged; scratchpad walllog.py/walldet2.py, 2026-10-29 ~03:55): a head-on hit plays
+  `COM_VEH_Collision_impact_PLR_set` at the hit and `VO1_PLR_BeenHit_Light` 0.19 s later (Impact_Med/Hard are kart-vs-kart).
+  The game's rule (collision response 0xe916b0, at 0xe91e45; data of `CKartCollisionResponseComponent`: +0x10 1000.0 min
+  speed, +0x18 0.819 = cos 35, +0x1c 0.966 = cos 15 while drifting (driveState 3-4)): wall hit -> damage 0xe330e0 type 1.
+  `wall_hit()` estimates it from positions: speed before (0.08 s) >= 1000, speed change > 900 pointing back within 35 deg (15
+  with R1 held), not a ramp (|vertical change| < 400), not frozen after (out-of-bounds pick-up). Logs: 2/2 head-on hits found
+  0.04 s early; 2 zig-zag runs: 1 dead stop without a game sound still counts as a hit (limit); Big Norm and N. Tropy ghosts:
+  none. In game: faked stop -> impact 29.97 s, "Ouch" 30.16 s. Owner offered (~03:35) a ghost with wall hits, falls, out of
+  bounds: use it to check.
 
 ## Crash cause found (all earlier "crashes" in the play calls)
 The last argument of 0x1024340 / 0x10241f0 / 0x1023c90 is a "finished" delegate of **two handles (16 bytes)** read by 0x263210,
