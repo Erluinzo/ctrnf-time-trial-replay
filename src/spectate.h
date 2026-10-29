@@ -106,6 +106,7 @@ struct state {
     int lap_count;          /* entries in lap_starts */
     int shown_lap;          /* lap the HUD shows, 0 = none yet */
     void *bar_kart;         /* the kart the boost bar reads (hud.c) */
+    void *lap_line[7];      /* copies of the game timer's lap lines (hud.c) */
     void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
     float placing_time;     /* at this time */
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
@@ -167,6 +168,7 @@ static inline float key_time(void *keys, int i)
 
 /* hud.c */
 void hud_frame(void *manager);
+void hud_late(void);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);
 /* spectate.c */

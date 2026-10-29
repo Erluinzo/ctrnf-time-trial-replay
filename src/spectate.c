@@ -240,6 +240,7 @@ void *sp_input(void *manager)
     }
     void *ctrl = sp.screen || sp.forced ? controller() : 0;
     if (ctrl) screen_frame(ctrl);
+    hud_late();
     return game_input_original(manager);
 }
 

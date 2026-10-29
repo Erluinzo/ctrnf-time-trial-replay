@@ -1,7 +1,6 @@
-/* Spectator HUD: copies of the game's own HUD pieces, added to the HUD's top level (as the reserves
- * meter does): the watched ghost's race time, its name and the playback speed, and a virtual
- * controller with the ghost's inputs. The game's timer and lap counter (the locked player's) are
- * hidden. */
+/* Spectator HUD: the game's own timer, lap display and boost bar show the watched ghost, and copies
+ * of the game's HUD pieces, added to the HUD's top level (as the reserves meter does), show its
+ * name and the playback speed, and a virtual controller with the ghost's inputs. */
 #include "spectate.h"
 
 extern void *game_spawn_placeable(void *project, void *source, void *parent) GAME;
@@ -14,6 +13,10 @@ extern void game_set_hidden(void *placeable, int hidden) GAME;
 extern void *game_find_driver(void *drivers, const char *name) GAME;   /* CRacerDriverData by _name, or 0 */
 extern void game_hud_set_lap(void *hud, int lap) GAME;
 extern void game_hud_bar(void *hud, int style) GAME;
+extern void *g_race_clock_meta GAME;    /* CRaceClockComponent (world entity): +0x28 _raceTimer */
+static float ghost_end_time(void *ghost);
+static void *world(void);
+static void *watched_ghost(void);
 extern void game_drift_ratio_original(void *kart, float *ratio) GAME;          /* hooks.s */
 extern void game_air_original(void *kart, void *a, void *b, void *c, void *d) GAME;   /* hooks.s */
 extern void *g_kart_move_meta GAME;     /* the kart component with the slide timer (+0xe0 state, +0xf8 timer) and air time (+0x248) */    /* gives the boost bar style's script the HUD's kart (+0x18) */  /* lap display; the final lap effect once (+0x88) */
@@ -26,7 +29,7 @@ extern uint8_t g_world_ready GAME;
 extern uint32_t g_world_id GAME, g_world_no_id GAME;
 extern char *g_entity_table GAME;
 
-#define TIME_TEMPLATE "[Timer]"
+#define LAP_TIMER "Lap Timer %"                 /* % = 1..7: the game timer's lap time lines */
 #define TEXT_TEMPLATE "[LapCounterText]"
 #define LABEL_TEMPLATE "Laps Label 1"           /* small text in the lap times: has the button symbols */
 #define BAR_TEMPLATE "[octane_ui_hud_boost_bg.tga]"
@@ -35,7 +38,6 @@ extern char *g_entity_table GAME;
 #define BAR_TEXTURE_WIDTH 244.0f                /* children are placed from the bar texture's width */
 #define STATUS_BOX 0.11f                        /* see hud_frame */
 #define DIM 0.4f                                /* opacity of a button that is not pressed */
-static const char HIDE[][40] = {"Timer"};      /* compositions: the player's race timer */
 /* The Reserves Meter mod's pieces (all its versions): the player's reserves, always 0 here */
 static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]"};
 
@@ -134,11 +136,37 @@ static void *text_piece(void *project, void *template, void *root, float x, floa
     return piece;
 }
 
+/* The game timer's lap line `i` (0..6), or 0 */
+static void *game_lap_line(void *root, int i)
+{
+    char name[] = LAP_TIMER;
+    name[sizeof name - 2] = (char)('1' + i);
+    return find(root, name, 0, 0);
+}
+
+/* The placeable that holds the game timer's pieces: the content of the "Timer" composition */
+static void *timer_content(void *root)
+{
+    for (int i = 0; i < child_count(root); i++) {
+        void *a = asset(child(root, i));
+        if (a && AT(a, 0, const void *) == g_composition_vtable && same_text(AT(a, 0x10, const char *), "Timer"))
+            return content(child(root, i));
+    }
+    return 0;
+}
+
 static void build(void *project, void *root)
 {
     sp.root = root;
-    sp.time_text = text_piece(project, find(root, TIME_TEMPLATE, 0, 0), root, 60.0f, 60.0f);
-    sp.status_text = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, 135.0f);
+    /* The game's script writes its own current lap line every frame (from lap times it gets only in a
+     * real race), so the lap lines shown are copies, at the same place; the game's stay hidden */
+    void *timer = timer_content(root);
+    for (int i = 0; i < 7; i++) {
+        void *line = timer ? game_lap_line(root, i) : 0;
+        sp.lap_line[i] = line ? copy(project, line, timer) : 0;
+        if (sp.lap_line[i]) game_set_position(sp.lap_line[i], &AT(line, 0x60, float));
+    }
+    sp.status_text = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, 700.0f);   /* above the controller */
     if (sp.status_text) sp.status_extent = AT(sp.status_text, 0x90, float);
     void *label = find(root, LABEL_TEMPLATE, 0, 0);
     for (int i = 0; i < PAD_COUNT; i++) {
@@ -186,6 +214,19 @@ static char *put_number(char *at, int n, int digits)
     do d[k++] = (char)('0' + n % 10), n /= 10; while (n || k < digits);
     while (k) *at++ = d[--k];
     return at;
+}
+
+/* "1:02:13" (minutes, seconds, hundredths), as the game's timer */
+static void put_time(char *at, float seconds)
+{
+    int centis = (int)(seconds * 100.0f + 0.5f);
+    if (centis < 0) centis = 0;
+    at = put_number(at, centis / 6000, 1);
+    *at++ = ':';
+    at = put_number(at, centis / 100 % 60, 2);
+    *at++ = ':';
+    at = put_number(at, centis % 100, 2);
+    *at = 0;
 }
 
 /* "Dr. N. Tropy" -> "DR. N. TROPY"; driver ids too: "DriverBigNorm" -> "BIG NORM", "DriverNTropy" -> "N. TROPY" */
@@ -314,21 +355,67 @@ static void hide_player_icon(void)
     if (project && sp.kart) hide_icon(AT(project, 0x10, void *), 0);
 }
 
+/* The race clock (CRaceClockComponent on the world entity, +0x28 _raceTimer) to `seconds`. The timer
+ * counts ticks of 1/8192 s: elapsed = (now, or its stop tick +0x10 when not running) - start tick
+ * (+0xc); +0x14 running, +0x15 paused; vtable +0xb0 = now (as the slide meter reads its timer, 0xe8c740) */
+static void set_race_clock(float seconds)
+{
+    void *w = world();
+    void *clock = w && g_race_clock_meta ? game_find_component(w, g_race_clock_meta, 0) : 0;
+    void *timer = clock ? AT(clock, 0x28, void *) : 0;
+    if (!timer || !AT(timer, 0, void *)) return;
+    typedef int32_t now_fn(void *timer);
+    int32_t now = AT(timer, 0x14, uint8_t) && !AT(timer, 0x15, uint8_t)
+                ? AT(*(void **)timer, 0xb0, now_fn *)(timer) : AT(timer, 0x10, int32_t);
+    AT(timer, 0xc, int32_t) = now - (int32_t)(seconds * 8192.0f);
+}
+
+/* The game timer's lap lines: the times of the finished laps and the current one, from the lap
+ * starts at the play time (so a rewind takes lines away). After the end, the last lap is finished. */
+static void lap_lines(void *root, void *ghost)
+{
+    char text[16];
+    float lines[8], last = ghost_end_time(ghost), start = sp.go;
+    int shown = 0;
+    for (int i = 0; i < sp.lap_count && sp.time >= sp.lap_starts[i] && shown < 7; i++) {
+        lines[shown++] = sp.lap_starts[i] - start;
+        start = sp.lap_starts[i];
+    }
+    if (sp.time > sp.go && shown < 7) lines[shown++] = (sp.time < last ? sp.time : last) - start;
+    for (int i = 0; i < 7; i++) {
+        void *game = game_lap_line(root, i);
+        if (game && game != sp.lap_line[i]) game_set_hidden(game, 1);
+        if (!sp.lap_line[i]) continue;
+        game_set_hidden(sp.lap_line[i], i >= shown);
+        if (i < shown) {
+            put_time(text, lines[i]);
+            game_set_text(sp.lap_line[i], text);
+        }
+    }
+}
+
+/* Every frame from sp_input, after the game's timer script wrote its own current lap line: write
+ * the lap lines again (only while ghosts play: the HUD is gone after the level) */
+void hud_late(void)
+{
+    if (!sp.active || !sp.manager || !AT(sp.manager, 0x14, uint8_t) || !sp.hud || sp.go_watch != sp.watch) return;
+    void *project = handle_object(&AT(sp.hud, 0x38, void *));
+    void *root = project && AT(project, 0x10, void *) ? content(AT(project, 0x10, void *)) : 0;
+    void *ghost = watched_ghost();
+    if (root && root == sp.root && ghost) lap_lines(root, ghost);
+}
+
 /* Every frame of a spectator run */
 void hud_frame(void *manager)
 {
     void *project = sp.hud ? handle_object(&AT(sp.hud, 0x38, void *)) : 0;
     void *root = project && AT(project, 0x10, void *) ? content(AT(project, 0x10, void *)) : 0;
     if (!root) return;
-    if (root != sp.root || !sp.time_text || !is_child(root, sp.time_text)) build(project, root);
+    if (root != sp.root || !sp.status_text || !is_child(root, sp.status_text)) build(project, root);
     hide_player_icon();
     for (int i = 0; i < child_count(root); i++) {
         for (int h = 0; h < (int)(sizeof HIDE_PIECES / sizeof *HIDE_PIECES); h++)
             if (same_text(AT(child(root, i), 0x28, const char *), HIDE_PIECES[h])) game_set_hidden(child(root, i), 1);
-        void *a = asset(child(root, i));
-        if (!a || AT(a, 0, const void *) != g_composition_vtable) continue;
-        for (int h = 0; h < (int)(sizeof HIDE / sizeof *HIDE); h++)
-            if (same_text(AT(a, 0x10, const char *), HIDE[h])) game_set_hidden(child(root, i), 1);
     }
 
     void *list = AT(manager, 0x40, void *);
@@ -356,16 +443,12 @@ void hud_frame(void *manager)
         sp.shown_lap = lap;
     }
 
-    char text[80], *at = text, *end = text + sizeof text - 16;
-    int centis = (int)((sp.time - sp.go) * 100.0f + 0.5f);
-    if (centis < 0) centis = 0;
-    at = put_number(at, centis / 6000, 1);
-    *at++ = ':';
-    at = put_number(at, centis / 100 % 60, 2);
-    *at++ = ':';
-    at = put_number(at, centis % 100, 2);
-    *at = 0;
-    if (sp.time_text) game_set_text(sp.time_text, text);
+    /* The game's timer shows the watched ghost's race time: its race clock is set every frame
+     * (it counts game time, which the playback speeds change) */
+    float last = ghost_end_time(ghost), now = (sp.time < last ? sp.time : last) - sp.go;
+    set_race_clock(now > 0.0f ? now : 0.0f);
+    lap_lines(root, ghost);
+    char text[80], *at, *end = text + sizeof text - 16;
 
     at = put_driver(text, ghost_name(manager, sp.watch, ghost), end);
     at = put(at, "  ");
@@ -530,3 +613,11 @@ void sp_air_data(void *kart, void *a, void *b, void *c, void *d)
     game_air_original(kart, a, b, c, d);
     AT(move, 0x248, float) = own;
 }
+
+/* The ghost's race end: its last move key (as ghost_end in spectate.c, without the margin) */
+static float ghost_end_time(void *ghost)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    return count(keys) ? key_time(keys, count(keys) - 1) : 0.0f;
+}
+
