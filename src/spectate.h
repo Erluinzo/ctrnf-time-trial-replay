@@ -69,24 +69,19 @@ struct state {
     void *time_text, *status_text, *pad[4], *steer_bar, *steer_fill;
     float steer_center;     /* x of the steering bar's middle, in the fill's parent */
     /* Sounds (sounds.c), in ghost time */
-    float heard;            /* events up to this time were played */
+    float heard;            /* wall hits up to this time were checked */
     int heard_watch;        /* for this ghost; -1 = none */
-    float drift_start, last_hop, last_tap, last_boost, last_move_event, air_until, vo_until;
-    struct { float at; int what; } pending[4];
-    int sounds_played, sounds_failed;
-    /* Sound test (tools): test_go = 1 plays test_name once on test_entity (0 ghost kart, 1 ghost driver,
-     * 2 player kart, 3 player driver); the result instance (or 0) goes to test_result. */
-    int test_go, test_entity;
-    int test_mode;          /* 0 play by name on the entity, 1 look up only, 2 look up on the entity and play at the ghost */
-    void *test_result, *test_used;
-    char test_name[64];
-    /* Last sounds played (tools/peek.py): name, ghost time, instance or 0 */
+    float last_hit;         /* the last wall hit */
+    float voice_at;         /* its "Ouch" line plays at this time; -1 = none */
+    int sounds_played;      /* sounds changed to the player's version or played for wall hits */
+    /* Last wall-hit sounds (tools/sounds.py): name, ghost time, instance or 0 */
     int log_n;
-    struct { const char *name; float at; int ok; } log[24];
-    void *audio, *player_audio;     /* CVehicleAudioComponent of the watched ghost / the player (tests) */
+    struct { const char *name; float at; int ok; } log[16];
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
-_Static_assert(__builtin_offsetof(struct state, log_n) == 376 && __builtin_offsetof(struct state, log) == 384, "tools/sounds.py reads the log here");
+_Static_assert(__builtin_offsetof(struct state, heard) == 204 && __builtin_offsetof(struct state, sounds_played) == 220
+               && __builtin_offsetof(struct state, log_n) == 224 && __builtin_offsetof(struct state, log) == 232,
+               "tools/peek.py and tools/sounds.py read these offsets");
 extern struct state sp GAME;
 
 /* Field access on game objects */

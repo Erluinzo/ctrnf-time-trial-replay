@@ -74,7 +74,7 @@ void sp_race_start(void *manager, void *racer)
     sp.go_watch = -1;
     sp.root = 0;
     sp.heard_watch = -1;
-    sp.sounds_played = sp.sounds_failed = 0;
+    sp.sounds_played = 0;
 }
 
 /* The first local player's id (CPlayer: +0x20 type, local <= 7; +0xb0 id), or -1 */
