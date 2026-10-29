@@ -37,7 +37,7 @@ GAME = {
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
-    'game_play_continue': 0x28a6b6, 'game_fill_ghosts_continue': 0xfceac6,
+    'game_play_continue': 0x28a6b6, 'game_input_continue': 0xa3b356, 'game_pad_continue': 0x3d4dd6, 'game_fill_ghosts_continue': 0xfceac6,
     'game_menu_after_gain': 0x9b38e3, 'game_menu_gain': 0x9b3b30, 'game_menu_lost': 0x9b3921,
     # data
     'g_ghost_manager': 0x2abc3d0, 'g_frame': 0x2ab4100, 'g_input_manager': 0x2ac2e90, 'g_players': 0x2ad1160, 'g_kart_manager': 0x2ac57c0,
@@ -56,6 +56,8 @@ HOOKS = [
     (0xfce5a2, 'c4c17a584618', 'e8', 'hook_clock', 1),                     # every frame: the ghost clock
     (0x28a6b0, '554889e54157', 'e9', 'sp_play', 1),                        # every sound the game starts
     (0xfceac0, '554889e54157', 'e9', 'sp_menu_open', 1),                   # the ghost menu fills its list
+    (0xa3b350, '554889e54157', 'e9', 'sp_input', 1),                       # every frame: the controllers are read
+    (0x3d4dd0, '554889e54157', 'e9', 'sp_pad_update', 1),                  # every frame: the pad device is read
     (0xfce60e, 'e88d000000', 'e8', 'sp_ghost_move', 0),                    # every frame, each ghost: its movement
     (0xfce619, 'e8e2030000', 'e8', 'sp_ghost_inputs', 0),                  # and its inputs
 ]

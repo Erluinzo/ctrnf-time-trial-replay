@@ -10,7 +10,7 @@ PROLOGUE = bytes.fromhex('554889e541574156415541545348')
 STATE = 0x2beea80
 # armed active set_up paused speed scrub time end watch ghosts | buttons | manager kart lock hud camera target
 # | bit[8] | frames menu_presses camera_sets
-LAYOUT = struct.Struct('<6i2f2iQ6Q8B3iifi4x')
+LAYOUT = struct.Struct('<6i2f2iQ6Q9B3x3iifi')
 SPEEDS = [0.1, 0.5, 1, 2, 3, 4]
 
 
@@ -34,13 +34,13 @@ def main():
             sys.exit('game image not found')
         mem.seek(base + STATE)
         v = LAYOUT.unpack(mem.read(LAYOUT.size))
-        mem.seek(base + STATE + 172)
+        mem.seek(base + STATE + 180)
         heard, heard_watch = struct.unpack('<fi', mem.read(8))
-        mem.seek(base + STATE + 188)
+        mem.seek(base + STATE + 196)
         played = struct.unpack('<i', mem.read(4))[0]
     (armed, active, set_up, paused, speed, scrub, time, end, watch, ghosts, buttons,
      manager, kart, lock, hud, camera, target, *rest) = v
-    bits, (frames, presses, camera_sets, show_pad, go, go_watch) = rest[:8], rest[8:]
+    bits, (frames, presses, camera_sets, show_pad, go, go_watch) = rest[:9], rest[9:]
     print(f'armed {armed} active {active} set_up {set_up} frames {frames} menu L1 presses {presses}')
     print(f'time {time:.2f} / {end:.2f} s, speed x{SPEEDS[speed] if 0 <= speed < 6 else speed}, '
           f'paused {paused}, scrub {scrub}, watching {watch} of {ghosts} ghosts')

@@ -9,12 +9,20 @@
  */
 #include "spectate.h"
 
+static void show_preview(void);
+static void kart_hidden(void *kart, int hidden);
+
 /* ---- Ghost menu ---- */
 
 void sp_menu_focus(void *behavior, void *placeable, int gained)
 {
     (void)behavior;
-    if (gained) sp.armed = 0;   /* back in the menu: a later Continue is a normal race */
+    if (gained) {
+        if (sp.screen) sp.debug_focus++;
+        sp.armed = 0;           /* back in the menu: a later Continue is a normal race */
+        sp.screen = 0;
+        show_preview();
+    }
     void *project = placeable ? AT(placeable, 0x20, void *) : 0;
     if (!project || !g_gui_manager) return;
     if (gained) {
@@ -50,6 +58,9 @@ void sp_menu_spectate(void *behavior, void *placeable)
     if (!g_ghost_manager || !project) return;
     if (!AT(g_ghost_manager, 0x48, uint8_t) && !count(AT(g_ghost_manager, 0x50, void *))) return;
     sp.armed = 1;
+    sp.screen = 1;              /* sp_input presses Ready on the next screen */
+    sp.screen_frames = 0;
+    sp.countdown_ticks = 0;
     game_menu_prepare(g_race_settings, 0);
     void *event = game_continue_event_new(0);
     if (!event) return;
@@ -67,6 +78,7 @@ void sp_race_start(void *manager, void *racer)
     game_start_recording(manager, racer);
     /* Time Trial only: the game's mode, as the race tick checks it (0xea2d90) */
     sp.active = sp.armed && manager && g_game && AT(g_game, 0xd4c, int32_t) == 2;
+    sp.screen = 0;
     if (!sp.active) return;
     AT(manager, 0x0c, uint8_t) = 0;     /* _isRecording: the race end saves nothing (0xfcefe0) */
     sp.manager = manager;
@@ -122,6 +134,107 @@ static void find_bits(void *ctrl)
                 break;
             }
     }
+}
+
+/* The player's kart, which the character screen shows on its platform */
+static void *preview_kart(void)
+{
+    int id = local_player();
+    return id >= 0 && g_kart_manager ? game_player_kart(g_kart_manager, id, 1) : 0;
+}
+
+static void show_preview(void)
+{
+    if (sp.preview) kart_hidden(preview_kart(), 0);
+    sp.preview = 0;
+}
+
+/* The countdown's GO: the level is about to load, the kart stays hidden and is not used again */
+void sp_countdown_go(void)
+{
+    sp.screen = 0;
+    sp.preview = 0;
+}
+
+/* A button pressed for one frame: sp_pad_update gives it to the pad device after the device read the
+ * pad, as the menus read the device, not the controller's bits. Released on the next frame. */
+static void press(int b)
+{
+    sp.forced = 1ull << b;
+}
+
+/* Called in place of the pad device's update (0x3d4dd0): igInputDevice +0x18 values (float per
+ * signal), +0x20 changed flags (byte per signal), +0x10 something changed. */
+uint64_t sp_pad_update(void *device, void *a, void *b, void *c)
+{
+    uint64_t result = game_pad_original(device, a, b, c);
+    void *ctrl = sp.forced ? controller() : 0;
+    if (!ctrl || AT(ctrl, 0x10, void *) != device) return result;
+    void *values = AT(device, 0x18, void *), *changed = AT(device, 0x20, void *);
+    for (int k = 0; k < B_COUNT; k++)
+        if (sp.forced >> k & 1 && SIGNALS[k] < count(values) && SIGNALS[k] < count(changed)) {
+            AT(values, 0x20, float *)[SIGNALS[k]] = 1.0f;
+            AT(changed, 0x20, uint8_t *)[SIGNALS[k]] = 1;
+            AT(device, 0x10, uint8_t) = 1;
+        }
+    return result;
+}
+
+/* Every frame from L1 until the race starts. The character screen after L1 shows no character
+ * (its kart is hidden) and starts its countdown at once: the patch presses Ready (Square, the
+ * screen's shortcut) every 20 frames until the countdown ticks are heard (sounds.c). Back during the
+ * countdown cancels it as usual; the patch then presses Back once more, to the ghost menu. Frames
+ * are counted because the menus do not update the game's frame times. */
+static void screen_frame(void *ctrl)
+{
+    sp.forced = 0;      /* the patch's press is released */
+    if (!sp.screen) return;
+    if (!sp.screen_frames++) find_bits(ctrl);
+    /* Back pressed by the player: on any game bit of its signal (the default map has copies) */
+    uint64_t pressed = AT(ctrl, 0xe8, uint64_t) & ~AT(ctrl, 0xf0, uint64_t);
+    int back = 0;
+    for (int i = 0; i < 51; i++)
+        if (AT(ctrl, 0x18 + 4 * i, int32_t) == SIGNALS[B_CIRCLE] && pressed >> i & 1) back = 1;
+    /* every frame (the screen shows it again when it opens), looked up again each time: it is
+     * freed when the level loads, after the countdown's GO (sp_countdown_go) */
+    sp.preview = (void *)1;
+    kart_hidden(preview_kart(), 1);
+    if (sp.screen == 1) {
+        if (sp.countdown_ticks) {
+            sp.screen = 2;
+            sp.screen_frames = 1;
+        } else if (back || sp.screen_frames > 600) {
+            sp.screen = 0;      /* the player goes back, or the screen never came */
+            show_preview();
+        } else if (sp.screen_frames >= 30 && sp.screen_frames % 20 == 0) {
+            press(B_SQUARE);
+        }
+        return;
+    }
+    if (sp.screen == 2) {
+        if (back) {             /* the game cancels the countdown: go on to the ghost menu */
+            sp.screen = 3;
+            sp.screen_frames = 1;
+            sp.backs_heard = 0;
+        }
+        return;
+    }
+    /* Back again every 30 frames (the screen ignores it just after the cancel) until the game's
+     * "back" sound is heard after it (sounds.c), so it never goes back twice */
+    if (sp.backs_heard || sp.screen_frames > 150) {
+        sp.screen = 0;
+        show_preview();
+    } else if (sp.screen_frames % 30 == 0) {
+        press(B_CIRCLE);
+    }
+}
+
+/* Called in place of the input manager's update (0xa3b350), every frame */
+void *sp_input(void *manager)
+{
+    void *ctrl = sp.screen || sp.forced ? controller() : 0;
+    if (ctrl) screen_frame(ctrl);
+    return game_input_original(manager);
 }
 
 /* Lock the player's kart (as the race end does, 0xe7eeb0) and the boost bar style button. */
@@ -285,21 +398,27 @@ static void ghost_look(void *manager)
     sp.unghosted = target;
 }
 
-/* The player is not seen: the locked kart, its driver and its child entities (wheels) are not drawn
- * (igEntity "set hidden" 0x3def00 changes the drawing only; CChildManagerComponent +0x28 handles).
- * Done every frame, as game code may show them again. The level is loaded again after the run. */
-static void hide_player(void)
+/* A kart, its driver and its child entities (wheels) drawn or not (igEntity "set hidden" 0x3def00
+ * changes the drawing only; CChildManagerComponent +0x28 handles) */
+static void kart_hidden(void *kart, int hidden)
 {
-    if (!sp.kart) return;
-    game_set_entity_hidden(sp.kart, 1);
-    void *driver = game_get_driver(sp.kart);
-    if (driver) game_set_entity_hidden(driver, 1);
-    void *children = g_child_manager_meta ? game_find_component(sp.kart, g_child_manager_meta, 0) : 0;
+    if (!kart) return;
+    game_set_entity_hidden(kart, hidden);
+    void *driver = game_get_driver(kart);
+    if (driver) game_set_entity_hidden(driver, hidden);
+    void *children = g_child_manager_meta ? game_find_component(kart, g_child_manager_meta, 0) : 0;
     void *list = children ? AT(children, 0x28, void *) : 0;
     for (int i = 0; i < count(list); i++) {
         void *entity = handle_object(&AT(list, 0x20, void **)[i]);
-        if (entity) game_set_entity_hidden(entity, 1);
+        if (entity) game_set_entity_hidden(entity, hidden);
     }
+}
+
+/* The player is not seen: the locked kart is hidden every frame, as game code may show it again. The
+ * level is loaded again after the run. */
+static void hide_player(void)
+{
+    kart_hidden(sp.kart, 1);
 }
 
 /* Every frame while ghosts play: returns the new ghost play time (the game adds the frame time). */

@@ -22,6 +22,8 @@ extern char *game_string(void *pool, const char *text) GAME;             /* new 
 extern void game_string_release(void *pool, char *header) GAME;
 extern void game_menu_prepare(void *settings, int zero) GAME;
 extern void *game_fill_ghosts_original(void *level, void **list) GAME;   /* hooks.s */
+extern void *game_input_original(void *input_manager) GAME;             /* hooks.s */
+extern uint64_t game_pad_original(void *device, void *a, void *b, void *c) GAME;    /* hooks.s */
 extern void *game_continue_event_new(void *pool) GAME;
 extern void *game_ghost_look_end_new(void *pool) GAME;      /* CKartEndTemporaryGhostMessage */
 extern void *game_ghost_look_start_new(void *pool) GAME;    /* CKartStartTemporaryGhostMessage */
@@ -50,9 +52,9 @@ static const float SPEEDS[] __attribute__((unused)) = {0.1f, 0.5f, 1.0f, 2.0f, 3
 #define NORMAL_SPEED 2
 
 /* Spectator buttons: device signals (CController._buttonMap values) and the default bits */
-enum { B_L1, B_R1, B_SQUARE, B_TRIANGLE, B_UP, B_DOWN, B_LEFT, B_RIGHT, B_COUNT };
-static const uint8_t SIGNALS[B_COUNT] __attribute__((unused)) = {8, 10, 5, 6, 0, 1, 2, 3};
-static const uint8_t DEFAULT_BITS[B_COUNT] __attribute__((unused)) = {11, 13, 8, 6, 14, 15, 17, 16};
+enum { B_L1, B_R1, B_SQUARE, B_TRIANGLE, B_UP, B_DOWN, B_LEFT, B_RIGHT, B_CIRCLE, B_COUNT };
+static const uint8_t SIGNALS[B_COUNT] __attribute__((unused)) = {8, 10, 5, 6, 0, 1, 2, 3, 4};
+static const uint8_t DEFAULT_BITS[B_COUNT] __attribute__((unused)) = {11, 13, 8, 6, 14, 15, 17, 16, 5};
 
 struct state {
     int armed;              /* the last start from the ghost menu was L1 */
@@ -90,10 +92,21 @@ struct state {
     void *pad[11];          /* virtual controller buttons (hud.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
     float status_extent;    /* the status text template's box width (hud.c) */
+    /* The character screen after L1 (spectate.c): 1 = pressing Ready, 2 = its countdown runs,
+     * 3 = cancelled: pressing Back to the ghost menu */
+    int screen;
+    int screen_frames;      /* frames in this step */
+    int countdown_ticks;    /* countdown sounds heard (sounds.c) */
+    uint64_t forced;        /* 1 << B_ button the patch pressed this frame (released on the next), 0 = none */
+    int backs_heard;        /* "back" sounds heard in step 3 (sounds.c) */
+    void *preview;          /* 1 = the kart on the character screen is hidden */
+    int debug_focus;        /* DEBUG: ghost menu focus gains while sp.screen */
+    int debug_n;            /* DEBUG: names of the last sounds started (tools) */
+    const char *debug_names[32];
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
-_Static_assert(__builtin_offsetof(struct state, heard) == 172 && __builtin_offsetof(struct state, sounds_played) == 188
-               && __builtin_offsetof(struct state, log_n) == 192 && __builtin_offsetof(struct state, log) == 200,
+_Static_assert(__builtin_offsetof(struct state, heard) == 180 && __builtin_offsetof(struct state, sounds_played) == 196
+               && __builtin_offsetof(struct state, log_n) == 200 && __builtin_offsetof(struct state, log) == 208,
                "tools/peek.py and tools/sounds.py read these offsets");
 extern struct state sp GAME;
 
@@ -145,3 +158,5 @@ static inline float key_time(void *keys, int i)
 void hud_frame(void *manager);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);
+/* spectate.c */
+void sp_countdown_go(void);

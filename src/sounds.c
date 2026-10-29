@@ -189,6 +189,15 @@ static void *plr_twin(void *sound)
 
 void *sp_play(void **out, void *system, void **sound, void *entity, const float *position, float volume)
 {
+    void *debug = handle_object(sound);
+    if (debug) sp.debug_names[sp.debug_n++ & 31] = AT(debug, 0x30, const char *);
+    /* the character screen's countdown ticks (spectate.c presses Ready until it runs) */
+    if (sp.screen && debug && same_name(AT(debug, 0x30, const char *), "ui_customization_countdown"))
+        sp.countdown_ticks++;
+    if (sp.screen == 3 && debug && same_name(AT(debug, 0x30, const char *), "ui_menu_back"))
+        sp.backs_heard++;
+    if (sp.screen && debug && same_name(AT(debug, 0x30, const char *), "ui_customization_countdown_go"))
+        sp_countdown_go();
     /* only in a spectator run while ghosts play (the manager lives for the whole game; +0x14 _isPlaying) */
     int on = sp.active && sp.manager && sp.manager == g_ghost_manager && AT(sp.manager, 0x14, uint8_t);
     void *list = on && entity && forward() ? AT(sp.manager, 0x40, void *) : 0;

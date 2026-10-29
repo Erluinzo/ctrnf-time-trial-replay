@@ -116,3 +116,20 @@ game_fill_ghosts_original:
     mov rbp, rsp
     push r15
     jmp game_fill_ghosts_continue
+
+# 0xa3b350, the input manager's update (every frame, menus too): its first instructions are replaced by
+# a jump to sp_input (spectate.c), which calls this: those instructions, then the rest of the game's function.
+    .globl game_input_original
+game_input_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_input_continue
+
+# 0x3d4dd0, the pad input device's update (reads the pad into its values): same as above, for sp_pad_update.
+    .globl game_pad_original
+game_pad_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_pad_continue
