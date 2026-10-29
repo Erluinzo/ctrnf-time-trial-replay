@@ -41,10 +41,12 @@ void sp_menu_focus(void *behavior, void *placeable, int gained)
 
 /* The ghost menu fills its list (0xfceac0, called when the menu opens): a race started from this menu
  * is a normal one unless L1 is pressed in it. Restart in the pause menu does not come here, so a
- * spectator run stays one. */
+ * spectator run stays one. Back from the character screen after L1, the character is shown again. */
 void *sp_menu_open(void *level, void **list)
 {
     sp.armed = 0;
+    sp.screen = 0;
+    show_preview();
     return game_fill_ghosts_original(level, list);
 }
 
@@ -209,8 +211,10 @@ static void screen_frame(void *ctrl)
         if (sp.countdown_ticks) {
             sp.screen = 2;
             sp.screen_frames = 1;
-        } else if (back || sp.screen_frames > 600) {
-            sp.screen = 0;      /* the player goes back, or the screen never came */
+        } else if (back) {
+            sp.screen = 0;      /* the player goes back: shown again in the ghost menu (sp_menu_open) */
+        } else if (sp.screen_frames > 600) {
+            sp.screen = 0;      /* the screen never came */
             show_preview();
         } else if (sp.screen_frames >= 30 && sp.screen_frames % 20 == 0) {
             press(B_SQUARE);
@@ -226,10 +230,10 @@ static void screen_frame(void *ctrl)
         return;
     }
     /* Back again every 30 frames (the screen ignores it just after the cancel) until the game's
-     * "back" sound is heard after it (sounds.c), so it never goes back twice */
+     * "back" sound is heard after it (sounds.c), so it never goes back twice. The character stays
+     * hidden while the screen goes: the ghost menu shows it again (sp_menu_open). */
     if (sp.backs_heard || sp.screen_frames > 150) {
         sp.screen = 0;
-        show_preview();
     } else if (sp.screen_frames % 30 == 0) {
         press(B_CIRCLE);
     }
@@ -239,7 +243,10 @@ static void screen_frame(void *ctrl)
  * adds its own when it opens, which gives the patch its GUI project */
 void sp_legend_add(void *project, int button, char **text, int always)
 {
-    if (sp.screen) sp.screen_project = project;
+    if (sp.screen) {
+        sp.screen_project = project;
+        kart_hidden(preview_kart(), 1);     /* the screen opens again after a cancel: no character */
+    }
     game_legend_add(project, button, text, always);
 }
 
@@ -526,6 +533,14 @@ void sp_ghost_inputs(void *manager, void *ghost)
     float time = AT(manager, 0x18, float);
     if (sp.active && manager == sp.manager && next >= 1 && next + 1 < count(keys)) {
         float t1 = AT(item(keys, next), 0xe, uint16_t) / 100.0f, t2 = AT(item(keys, next + 1), 0xe, uint16_t) / 100.0f;
+        /* A key in the same 1/100 s as the one after it is never in effect in the game's search, e.g.
+         * the "start drift" input (bit 13, read at 0xe301b5), which starts a ghost's slide: a third of
+         * them were lost, with the slide's boosts (Hot Air Skyway 34.38: no slide, the fire went out).
+         * It is the key in effect for one frame. */
+        if (time >= t1 && t2 <= t1 && time - t1 < SKIP_MAX) {
+            AT(ghost, 0x44, int32_t) = next;
+            return;
+        }
         if (time >= t2 && time - t1 < SKIP_MAX) AT(manager, 0x18, float) = t1;
     }
     ghost_update(game_ghost_inputs, manager, ghost);
