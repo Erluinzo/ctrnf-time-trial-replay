@@ -11,6 +11,8 @@ extern void *game_find_component(void *entity, void *meta, int zero) GAME;
 extern void game_ghost_reset(void *manager, void *ghost) GAME;           /* kart to key 0, indexes 0 */
 extern void game_ghost_move(void *manager, void *ghost) GAME;            /* move keys at the play time */
 extern void game_ghost_inputs(void *manager, void *ghost) GAME;          /* input keys at the play time */
+extern void game_set_entity_position(void *entity, const float *position) GAME;
+extern void game_set_entity_angles(void *entity, const float *angles, int zero) GAME;
 extern void game_start_recording(void *manager, void *racer) GAME;
 extern void *game_player_kart(void *kart_manager, int player, int one) GAME;
 extern void *game_camera_instance(void) GAME;                            /* first local player's */
@@ -100,6 +102,9 @@ struct state {
     uint64_t forced;        /* 1 << B_ button the patch pressed this frame (released on the next), 0 = none */
     int backs_heard;        /* "back" sounds heard in step 3 (sounds.c) */
     void *preview;          /* 1 = the kart on the character screen is hidden */
+    void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
+    float placing_time;     /* at this time */
+    int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
     int debug_focus;        /* DEBUG: ghost menu focus gains while sp.screen */
     int debug_n;            /* DEBUG: names of the last sounds started (tools) */
     const char *debug_names[32];

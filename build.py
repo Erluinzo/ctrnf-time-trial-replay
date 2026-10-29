@@ -35,6 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
+    'game_set_entity_position': 0x3dc8e0, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
     'game_play_continue': 0x28a6b6, 'game_input_continue': 0xa3b356, 'game_pad_continue': 0x3d4dd6, 'game_fill_ghosts_continue': 0xfceac6,
@@ -60,6 +61,8 @@ HOOKS = [
     (0x3d4dd0, '554889e54157', 'e9', 'sp_pad_update', 1),                  # every frame: the pad device is read
     (0xfce60e, 'e88d000000', 'e8', 'sp_ghost_move', 0),                    # every frame, each ghost: its movement
     (0xfce619, 'e8e2030000', 'e8', 'sp_ghost_inputs', 0),                  # and its inputs
+    (0xfce836, 'e8a5e040ff', 'e8', 'sp_place_position', 0),                # a ghost kart is placed: position
+    (0xfce997, 'e854d2bdff', 'e8', 'sp_place_angles', 0),                  # and angles
 ]
 
 CFLAGS = ['-c', '-O2', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protector',

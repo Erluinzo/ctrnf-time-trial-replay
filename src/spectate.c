@@ -232,6 +232,11 @@ static void screen_frame(void *ctrl)
 /* Called in place of the input manager's update (0xa3b350), every frame */
 void *sp_input(void *manager)
 {
+    /* The run is over (level exit clears _isPlaying, +0x14): the game's speed back to normal */
+    if (sp.game_speed_set && !(sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t)) && g_frame) {
+        AT(g_frame, 0x2c, float) = 1.0f;
+        sp.game_speed_set = 0;
+    }
     void *ctrl = sp.screen || sp.forced ? controller() : 0;
     if (ctrl) screen_frame(ctrl);
     return game_input_original(manager);
@@ -333,13 +338,122 @@ static float ghost_end(void *ghost)
 static void ghost_update(void (*update)(void *, void *), void *manager, void *ghost)
 {
     float time = AT(manager, 0x18, float);
-    if (sp.active && manager == sp.manager && time > ghost_end(ghost)) {
-        AT(manager, 0x18, float) = ghost_end(ghost);
-        update(manager, ghost);
-        AT(manager, 0x18, float) = time;
-        return;
-    }
+    int on = sp.active && manager == sp.manager;
+    if (on && time > ghost_end(ghost)) AT(manager, 0x18, float) = ghost_end(ghost);
+    sp.placing = on ? ghost : 0;
+    sp.placing_time = AT(manager, 0x18, float);
     update(manager, ghost);
+    sp.placing = 0;
+    AT(manager, 0x18, float) = time;
+}
+
+/* Smooth movement. Move keys are about 0.07 s apart (up to 0.35 s in the air) and their times are
+ * rounded to 1/100 s, so the game's straight lines between them make corners and change speed by
+ * up to 20% at every key: the kart stutters. In a spectator run the position follows a curve
+ * through the keys (Catmull-Rom: the direction at a key comes from its neighbours), averaged over
+ * +-SMOOTH s around the play time (triangle weights) for the rounded times; angles are averaged
+ * only. Past and future keys are used, so there is no delay. A jump (respawn) is not smoothed. CGhostMoveKey: +0xc position, +0x18 time (1/100 s), +0x1a/+0x1c/+0x1e
+ * angles (65536 = one turn). */
+#define SMOOTH 0.15f
+#define JUMP 3000.0f        /* units in 2 x SMOOTH (0.3 s): faster than any kart */
+#define TURN 6.2831853f
+#define ANGLE_UNIT 10430.06f
+
+static float wrap(float a)      /* to -pi..pi */
+{
+    while (a > TURN / 2) a -= TURN;
+    while (a < -TURN / 2) a += TURN;
+    return a;
+}
+
+/* Key pair at time t: lo, and the fraction towards lo + 1 */
+static int key_at(void *keys, float t, float *f)
+{
+    int lo = 0, hi = count(keys) - 1;
+    while (hi - lo > 1) {
+        int mid = (lo + hi) / 2;
+        if (key_time(keys, mid) <= t) lo = mid; else hi = mid;
+    }
+    float t0 = key_time(keys, lo), t1 = key_time(keys, hi);
+    *f = t1 > t0 ? (t - t0) / (t1 - t0) : 0.0f;
+    if (*f < 0.0f) *f = 0.0f;
+    if (*f > 1.0f) *f = 1.0f;
+    return lo;
+}
+
+/* Direction (units per second, axis i) at key k: from the key before to the key after */
+static float slope(void *keys, int k, int i)
+{
+    int a = k > 0 ? k - 1 : k, b = k + 1 < count(keys) ? k + 1 : k;
+    float dt = key_time(keys, b) - key_time(keys, a);
+    return dt > 0.0f ? (AT(item(keys, b), 0xc + 4 * i, float) - AT(item(keys, a), 0xc + 4 * i, float)) / dt : 0.0f;
+}
+
+/* Axis i of the curve between key lo and lo + 1, at fraction f (cubic Hermite) */
+static float curve(void *keys, int lo, float f, int i)
+{
+    int hi = lo + 1 < count(keys) ? lo + 1 : lo;
+    float h = key_time(keys, hi) - key_time(keys, lo);
+    float p0 = AT(item(keys, lo), 0xc + 4 * i, float), p1 = AT(item(keys, hi), 0xc + 4 * i, float);
+    if (h <= 0.0f) return p0;
+    float f2 = f * f, f3 = f2 * f;
+    return (2 * f3 - 3 * f2 + 1) * p0 + (f3 - 2 * f2 + f) * h * slope(keys, lo, i)
+         + (3 * f2 - 2 * f3) * p1 + (f3 - f2) * h * slope(keys, hi, i);
+}
+
+/* The ghost's position (pose 0) or angles (pose 1) at time t, smoothed; 0 when it cannot be */
+static int smooth_pose(void *ghost, float t, int pose, float *out)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    int n = count(keys);
+    if (n < 3) return 0;
+    float first = key_time(keys, 1), last = ghost_end(ghost), sum = 0.0f, ref[3] = {0};
+    float ends[2][3];
+    out[0] = out[1] = out[2] = 0.0f;
+    for (int k = -4; k <= 4; k++) {
+        float s = t + k * SMOOTH / 4, f, v[3];
+        if (s < first) s = first;
+        if (s > last) s = last;
+        int lo = key_at(keys, s, &f);
+        void *a = item(keys, lo), *b = item(keys, lo + 1 < n ? lo + 1 : lo);
+        for (int i = 0; i < 3; i++) {
+            if (pose) {
+                float x = AT(a, 0x1a + 2 * i, int16_t) / ANGLE_UNIT, y = AT(b, 0x1a + 2 * i, int16_t) / ANGLE_UNIT;
+                v[i] = x + f * wrap(y - x);
+            } else {
+                v[i] = curve(keys, lo, f, i);
+            }
+        }
+        if (k == -4 || k == 4)
+            for (int i = 0; i < 3; i++) ends[k > 0][i] = v[i];
+        if (k == -4)
+            for (int i = 0; i < 3; i++) ref[i] = v[i];
+        float w = (float)(5 - (k < 0 ? -k : k));
+        for (int i = 0; i < 3; i++) out[i] += w * (pose ? wrap(v[i] - ref[i]) : v[i]);   /* angles: no jump at +-pi */
+        sum += w;
+    }
+    for (int i = 0; i < 3; i++) out[i] = pose ? wrap(ref[i] + out[i] / sum) : out[i] / sum;
+    if (!pose) {
+        float dx = ends[1][0] - ends[0][0], dy = ends[1][1] - ends[0][1], dz = ends[1][2] - ends[0][2];
+        if (dx * dx + dy * dy + dz * dz > JUMP * JUMP) return 0;
+    }
+    return 1;
+}
+
+/* Called in place of the game's "set position" and "set angles" when it places a ghost kart (0xfce836,
+ * 0xfce997, in 0xfce6a0) */
+void sp_place_position(void *entity, const float *position)
+{
+    float smooth[3];
+    if (sp.placing && smooth_pose(sp.placing, sp.placing_time, 0, smooth)) position = smooth;
+    game_set_entity_position(entity, position);
+}
+
+void sp_place_angles(void *entity, const float *angles, int zero)
+{
+    float smooth[3];
+    if (sp.placing && smooth_pose(sp.placing, sp.placing_time, 1, smooth)) angles = smooth;
+    game_set_entity_angles(entity, angles, zero);
 }
 
 /* Called in place of the game's two calls for each playing ghost (0xfce60e, 0xfce619) */
@@ -443,6 +557,15 @@ float sp_clock(void *manager, float game_time)
     if (time < 0.0f) time = 0.0f;
     if (time < old) rewind(manager, time);
     sp.time = time;
+    /* The game's own speed (frame times +0x2c _gameSpeed) follows the playback, so animations,
+     * effects and the world stop and change speed with the karts: 0 while paused or when the
+     * watched ghost is at its end, the playback speed while playing, x1 while rewinding */
+    void *watched = sp.watch < count(AT(manager, 0x40, void *)) ? item(AT(manager, 0x40, void *), sp.watch) : 0;
+    int stopped = sp.paused || (watched && time >= ghost_end(watched));
+    if (g_frame && !paused) {
+        AT(g_frame, 0x2c, float) = sp.scrub < 0 ? 1.0f : sp.scrub > 0 ? SCRUB_SPEED : stopped ? 0.0f : SPEEDS[sp.speed];
+        sp.game_speed_set = 1;
+    }
     follow(manager);
     ghost_look(manager);
     hide_player();
