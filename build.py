@@ -37,7 +37,7 @@ GAME = {
     'game_play_at': 0x1023c90,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
-    'game_play_continue': 0x28a6b6,
+    'game_play_continue': 0x28a6b6, 'game_fill_ghosts_continue': 0xfceac6,
     'game_menu_after_gain': 0x9b38e3, 'game_menu_gain': 0x9b3b30, 'game_menu_lost': 0x9b3921,
     # data
     'g_ghost_manager': 0x2abc3d0, 'g_frame': 0x2ab4100, 'g_input_manager': 0x2ac2e90, 'g_players': 0x2ad1160, 'g_kart_manager': 0x2ac57c0,
@@ -55,6 +55,7 @@ HOOKS = [
     (0xea6390, 'e80b561200', 'e8', 'sp_race_start', 0),                    # race start: start recording the player
     (0xfce5a2, 'c4c17a584618', 'e8', 'hook_clock', 1),                     # every frame: the ghost clock
     (0x28a6b0, '554889e54157', 'e9', 'sp_play', 1),                        # every sound the game starts
+    (0xfceac0, '554889e54157', 'e9', 'sp_menu_open', 1),                   # the ghost menu fills its list
 ]
 
 CFLAGS = ['-c', '-O2', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protector',

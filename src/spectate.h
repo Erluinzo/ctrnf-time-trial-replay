@@ -19,6 +19,7 @@ extern void game_legend_add(void *project, int button, char **text, int always) 
 extern char *game_string(void *pool, const char *text) GAME;             /* new reference */
 extern void game_string_release(void *pool, char *header) GAME;
 extern void game_menu_prepare(void *settings, int zero) GAME;
+extern void *game_fill_ghosts_original(void *level, void **list) GAME;   /* hooks.s */
 extern void *game_continue_event_new(void *pool) GAME;
 extern void *game_ghost_look_end_new(void *pool) GAME;      /* CKartEndTemporaryGhostMessage */
 extern void *game_ghost_look_start_new(void *pool) GAME;    /* CKartStartTemporaryGhostMessage */

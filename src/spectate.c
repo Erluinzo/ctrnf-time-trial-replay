@@ -31,6 +31,15 @@ void sp_menu_focus(void *behavior, void *placeable, int gained)
     AT(*(void **)project, 0xb0, handler *)(project, event);
 }
 
+/* The ghost menu fills its list (0xfceac0, called when the menu opens): a race started from this menu
+ * is a normal one unless L1 is pressed in it. Restart in the pause menu does not come here, so a
+ * spectator run stays one. */
+void *sp_menu_open(void *level, void **list)
+{
+    sp.armed = 0;
+    return game_fill_ghosts_original(level, list);
+}
+
 /* L1 on an entry: if ghosts are chosen, start the race as the Continue button does (0x127ee57). */
 void sp_menu_spectate(void *behavior, void *placeable)
 {

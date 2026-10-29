@@ -8,8 +8,8 @@
  * - The engine graph (CVehicleAudioComponent) plays its "_PLR" set when _isLocalPlayer is set: on for
  *   the watched ghost; the others fade out and go back to their silent "_NPC" set.
  * - Ghosts have no collisions, so the game has no wall hits for them: those are found in the ghost's
- *   movement (a sudden speed loss without braking) and get the impact sound and, 0.2 s later, the
- *   "Ouch" line, as the game's voice script does (notes/kart-events.md).
+ *   movement with the game's own limits (wall_hit) and get the game's impact sound and, 0.2 s later,
+ *   the "Ouch" line, as the game's voice script does (notes/sounds-progress.md).
  * Nothing plays while paused or while the D-pad rewinds or fast forwards. */
 #include "spectate.h"
 
@@ -18,12 +18,17 @@ extern void *game_sound_system(void) GAME;
 extern void game_play_at(void **instance, void *entity, const float *position, void *sound, void *callback) GAME;
 extern void *game_play_original(void **out, void *system, void **sound, void *entity, const float *position, float volume) GAME;
 
-#define IN_BRAKE 0x400
-#define WINDOW 0.3f             /* s: speeds are averaged over this */
-#define WALL_LOSS -700.0f       /* units/s lost within 0.3 s without braking: a wall hit */
-#define HARD_LOSS -1200.0f
+#define IN_FIRST_JUMP 0x800    /* held while drifting */
+/* The game's wall hit (0xe91e45, CKartCollisionResponseComponent data): speed >= 1000 and the kart
+ * going into the wall within 35 degrees of head-on (15 while drifting). For a ghost the wall is not
+ * known: its direction is taken from the speed change, which points out of the wall. */
+#define HIT_SPEED 1000.0f
+#define HIT_COS -0.819f         /* cos 35 degrees */
+#define HIT_COS_DRIFT -0.966f   /* cos 15 degrees */
+#define HIT_CHANGE 900.0f       /* units/s of speed change in 0.08 s; measured on real hits (2400 -> 0) */
+#define WINDOW 0.08f            /* s: speeds before and after a moment */
 #define TELEPORT 6000.0f        /* faster than any kart: a respawn, not driving */
-#define GRID 0.05f              /* movement is checked every 0.05 s of ghost time */
+#define GRID 0.02f              /* movement is checked every 0.02 s of ghost time */
 #define VOICE_DELAY 0.2f        /* the voice script plays the hit line 0.2 s after the hit */
 
 static int forward(void)
@@ -63,20 +68,15 @@ static void position(void *ghost, float t, float *out)
     for (int i = 0; i < 3; i++) out[i] = a[i] + (b[i] - a[i]) * f;
 }
 
-/* Ground speed around ghost time t, units/s (z is up) */
-static float speed(void *ghost, float t)
+static float length(float x, float y)
 {
-    float a[3], b[3];
-    position(ghost, t - WINDOW / 2, a);
-    position(ghost, t + WINDOW / 2, b);
-    float x = (b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]);
-    float r = x > 1.0f ? x : 1.0f;
-    for (int i = 0; i < 20; i++) r = 0.5f * (r + x / r);    /* square root */
-    return r / WINDOW;
+    float s = x * x + y * y, r = s > 1.0f ? s : 1.0f;
+    for (int i = 0; i < 20; i++) r = 0.5f * (r + s / r);     /* square root */
+    return s > 0.0f ? r : 0.0f;
 }
 
-/* The brake input at ghost time t (CGhostSnapshotKey: +0xc bits, +0xe time in 1/100 s) */
-static int braking(void *ghost, float t)
+/* Input bits at ghost time t (CGhostSnapshotKey: +0xc bits, +0xe time in 1/100 s) */
+static int input_at(void *ghost, float t)
 {
     void *keys = AT(ghost, 0x38, void *);
     int lo = 0, hi = count(keys);
@@ -84,7 +84,7 @@ static int braking(void *ghost, float t)
         int mid = (lo + hi) / 2;
         if (AT(item(keys, mid), 0xe, uint16_t) / 100.0f <= t) lo = mid + 1; else hi = mid;
     }
-    return lo > 0 && (AT(item(keys, lo - 1), 0xc, uint16_t) & IN_BRAKE);
+    return lo > 0 ? AT(item(keys, lo - 1), 0xc, uint16_t) : 0;
 }
 
 /* A kart sound (CSound) by name from the vehicle bank in the sound system's bank list (+0xd8): the
@@ -125,14 +125,35 @@ static void play(void *ghost, const char *name, int voice)
     if (instance) game_release(instance);
 }
 
+/* A wall hit at ghost time g (see HIT_*): speeds in the 0.08 s before and after (z is up). Not a hit:
+ * a ramp (the speed turns upward) or an out-of-bounds pick-up (the kart then stands frozen). */
+static int wall_hit(void *ghost, float g)
+{
+    float a[3], b[3], c[3], d[3], e[3];
+    position(ghost, g - WINDOW, a);
+    position(ghost, g, b);
+    position(ghost, g + WINDOW, c);
+    float v1x = (b[0] - a[0]) / WINDOW, v1y = (b[1] - a[1]) / WINDOW;
+    float v2x = (c[0] - b[0]) / WINDOW, v2y = (c[1] - b[1]) / WINDOW;
+    float s1 = length(v1x, v1y), s2 = length(v2x, v2y), change = length(v2x - v1x, v2y - v1y);
+    if (s1 < HIT_SPEED || change < HIT_CHANGE || s1 > TELEPORT || s2 > TELEPORT) return 0;
+    float cos = (v1x * (v2x - v1x) + v1y * (v2y - v1y)) / (s1 * change);
+    if (cos > (input_at(ghost, g) & IN_FIRST_JUMP ? HIT_COS_DRIFT : HIT_COS)) return 0;
+    float climb = ((c[2] - b[2]) - (b[2] - a[2])) / WINDOW;
+    if (climb > 400.0f || climb < -400.0f) return 0;
+    position(ghost, g + 0.1f, d);
+    position(ghost, g + 0.4f, e);
+    float moved = (d[0] - e[0]) * (d[0] - e[0]) + (d[1] - e[1]) * (d[1] - e[1]) + (d[2] - e[2]) * (d[2] - e[2]);
+    return moved >= 1.0f;
+}
+
+/* The game's sounds for a wall hit: the impact at once, the "Ouch" line 0.2 s later (voice script) */
 static void wall_hits(void *ghost, float from, float to)
 {
     for (float g = (float)((int)(from / GRID) + 1) * GRID; g <= to; g += GRID) {
-        if (g < sp.go + 1.0f || g - sp.last_hit < 0.5f) continue;
-        float before = speed(ghost, g - 0.15f), after = speed(ghost, g + 0.15f);
-        if (after - before >= WALL_LOSS || before > TELEPORT || after > TELEPORT || braking(ghost, g)) continue;
+        if (g < sp.go + 1.0f || g - sp.last_hit < 0.5f || !wall_hit(ghost, g)) continue;
         sp.last_hit = g;
-        play(ghost, after - before < HARD_LOSS ? "COM_VEH_Impact_Hard_PLR_set" : "COM_VEH_Impact_Med_PLR_set", 0);
+        play(ghost, "COM_VEH_Collision_impact_PLR_set", 0);
         sp.voice_at = g + VOICE_DELAY;
     }
     if (sp.voice_at >= 0.0f && sp.voice_at <= to) {

@@ -106,3 +106,13 @@ game_play_original:
     mov rbp, rsp
     push r15
     jmp game_play_continue
+
+# 0xfceac0, the ghost menu's "fill the challenge ghosts" (level, &list), called when the menu opens:
+# its first instructions (push rbp; mov rbp, rsp; push r15) are replaced by a jump to sp_menu_open,
+# which calls this: those instructions, then the rest of the game's function.
+    .globl game_fill_ghosts_original
+game_fill_ghosts_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_fill_ghosts_continue

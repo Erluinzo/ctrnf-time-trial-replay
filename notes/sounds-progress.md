@@ -44,3 +44,5 @@ CSound +0x20 `_lastPlayTime` in that clock, +0x84 cooldown s.
 - Clean up: stream back to sink 68 muted, `pactl unload-module 536870916`.
 - TEST FILE added 2026-10-29 03:10: `CTRNF/mod-state/user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost` (copy of the
   owner's export, for the shared ghost test): remove at cleanup.
+EU TEST FILES: user/savedata/1/CUSA14876/GhostShare/ (created 03:30 by the EU export test)
+EU TEST FILE: user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost (folder user/data/ghosts created 03:31 if it was missing)
