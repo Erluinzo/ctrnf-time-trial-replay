@@ -34,6 +34,10 @@ def main():
             sys.exit('game image not found')
         mem.seek(base + STATE)
         v = LAYOUT.unpack(mem.read(LAYOUT.size))
+        mem.seek(base + STATE + 204)
+        heard, heard_watch = struct.unpack('<fi', mem.read(8))
+        mem.seek(base + STATE + 272)
+        played, failed = struct.unpack('<2i', mem.read(8))
     (armed, active, set_up, paused, speed, scrub, time, end, watch, ghosts, buttons,
      manager, kart, lock, hud, camera, target, *rest) = v
     bits, (frames, presses, camera_sets, show_pad, go, go_watch) = rest[:8], rest[8:]
@@ -42,6 +46,7 @@ def main():
           f'paused {paused}, scrub {scrub}, watching {watch} of {ghosts} ghosts')
     print(f'buttons {buttons:#x}, bits {list(bits)}; camera sets {camera_sets}; pad {show_pad}, race start {go:.2f} s (ghost {go_watch})')
     print(f'manager {manager:#x} kart {kart:#x} lock {lock:#x} hud {hud:#x} camera {camera:#x} target {target:#x}')
+    print(f'sounds: played {played}, failed {failed}; heard up to {heard:.2f} s (ghost {heard_watch})')
 
 
 if __name__ == '__main__':

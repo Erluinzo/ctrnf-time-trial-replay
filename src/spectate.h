@@ -67,6 +67,18 @@ struct state {
     void *root;             /* HUD root our pieces were added to (only compared) */
     void *time_text, *status_text, *pad[4], *steer_bar, *steer_fill;
     float steer_center;     /* x of the steering bar's middle, in the fill's parent */
+    /* Sounds (sounds.c), in ghost time */
+    float heard;            /* events up to this time were played */
+    int heard_watch;        /* for this ghost; -1 = none */
+    float drift_start, last_hop, last_tap, last_boost, last_move_event, air_until, vo_until;
+    struct { float at; int what; } pending[4];
+    int sounds_played, sounds_failed;
+    /* Sound test (tools): test_go = 1 plays test_name once on test_entity (0 ghost kart, 1 ghost driver,
+     * 2 player kart, 3 player driver); the result instance (or 0) goes to test_result. */
+    int test_go, test_entity;
+    int test_mode;          /* 0 play by name on the entity, 1 look up only, 2 look up on the entity and play at the ghost */
+    void *test_result, *test_used;
+    char test_name[64];
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
 extern struct state sp GAME;
@@ -117,3 +129,5 @@ static inline float key_time(void *keys, int i)
 
 /* hud.c */
 void hud_frame(void *manager);
+/* sounds.c */
+void sounds_frame(void *manager, float from, float to);

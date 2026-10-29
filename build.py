@@ -31,6 +31,8 @@ GAME = {
     'game_string_release': 0x1518e30, 'game_menu_prepare': 0xc2e400, 'game_continue_event_new': 0x1255f90,
     'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_position': 0x268f90,
     'game_set_scale': 0x269120, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
+    'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
+    'game_find_sound': 0x287780, 'game_play_at': 0x1023c90, 'game_bank_find': 0x283c10,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
     'game_menu_after_gain': 0x9b38e3, 'game_menu_gain': 0x9b3b30, 'game_menu_lost': 0x9b3921,
@@ -74,7 +76,7 @@ def run(*command):
 
 def build_code(tmp):
     objects = []
-    for source in ('spectate.c', 'hud.c', 'mem.c'):
+    for source in ('spectate.c', 'hud.c', 'sounds.c', 'mem.c'):
         obj = tmp / (source + '.o')
         run('gcc', *CFLAGS, '-o', obj, HERE / 'src' / source)
         objects.append(obj)

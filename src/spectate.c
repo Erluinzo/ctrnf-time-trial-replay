@@ -4,7 +4,7 @@
  * - Race start: nothing is recorded, so the run saves no ghost and unlocks nothing.
  * - Every frame (the ghost update): the player's kart is locked, the camera follows the watched
  *   ghost, and the patch sets the ghost clock itself: pause, rewind, fast forward and speeds.
- *   The HUD (hud.c) shows the ghost's time, name, speed and inputs.
+ *   The HUD (hud.c) shows the ghost's time, name, speed and inputs; sounds.c plays its kart sounds.
  * Notes: ../notes/ (ghost-playback.md, camera-input.md).
  */
 #include "spectate.h"
@@ -73,6 +73,8 @@ void sp_race_start(void *manager, void *racer)
     sp.show_pad = 1;
     sp.go_watch = -1;
     sp.root = 0;
+    sp.heard_watch = -1;
+    sp.sounds_played = sp.sounds_failed = 0;
 }
 
 /* The first local player's id (CPlayer: +0x20 type, local <= 7; +0xb0 id), or -1 */
@@ -239,5 +241,6 @@ float sp_clock(void *manager, float game_time)
     sp.time = time;
     follow(manager);
     hud_frame(manager);
+    sounds_frame(manager, old, time);
     return time;
 }
