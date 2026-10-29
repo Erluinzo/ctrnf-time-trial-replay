@@ -47,7 +47,4 @@ CSound +0x20 `_lastPlayTime` in that clock, +0x84 cooldown s.
   `dev/hear.py`, `dev/phases.py` (one recording, steps 3 s apart). `dev/nomusic.sh` sets music volume 0 (not kept after kill).
 - PipeWire remembers mute/sink per app: mute the stream before closing the game (`dev/relaunch.sh` does).
 - Clean up: stream back to sink 68 muted, `pactl unload-module 536870916`.
-- TEST FILE added 2026-10-29 03:10: `CTRNF/mod-state/user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost` (copy of the
-  owner's export, for the shared ghost test): remove at cleanup.
-EU TEST FILES: user/savedata/1/CUSA14876/GhostShare/ (created 03:30 by the EU export test)
-EU TEST FILE: user/data/ghosts/t111_crash_cove_1m21s99_Neox.ctrghost (folder user/data/ghosts created 03:31 if it was missing)
+- Test files of the night (shared ghost copies, EU export) were removed and the null sink unloaded at the 04:30 cleanup.
