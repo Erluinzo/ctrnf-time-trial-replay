@@ -456,7 +456,7 @@ static int smooth_pose(void *ghost, float t, int pose, float *out)
 /* Called in place of "set position" where the game gives a kart its physics body's position after
  * the physics step (0xe96691). The body of a ghost kart can touch the track (e.g. Electron Avenue's
  * big jump at 0:07.39) and be pushed up to 100 units for a frame: the watched kart gets where it is on
- * the path instead: its placement this frame, moved by the speed it was given (sp_place_position). */
+ * the path instead: its placement this frame, moved by its motion in this frame (sp_place_position). */
 void sp_body_sync(void *entity, const float *position)
 {
     float at[3];
@@ -480,16 +480,17 @@ void sp_place_position(void *entity, const float *position)
     void *list = AT(sp.manager, 0x40, void *);
     int watched = sp.watch < count(list) && item(list, sp.watch) == sp.placing;
     game_set_entity_position(entity, smooth);
-    /* Its speed (+0x60) along the same path: the physics step after this moves the kart by speed x
-     * frame time, and the game's own speed value jumps at the keys (one frame jumps of up to 100
-     * units in the air). Ghost time runs as fast as game time (sp_clock sets the game speed), except
-     * while rewinding: x4 backwards at game speed 1. */
-    if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead)) {
+    /* Its speed (+0x60) along the same path: the game's own speed value jumps at the keys. The speed
+     * always points forward, as the camera looks along it (backwards while rewinding, it swung to the
+     * front of the kart). */
+    float v[3] = {0};
+    if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead))
+        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = v[i] = (ahead[i] - smooth[i]) / 0.01f;
+    /* For sp_body_sync: the motion in this frame. Ghost time runs as fast as game time (sp_clock sets
+     * the game speed), except while rewinding: x4 backwards at game speed 1. */
+    if (watched) {
         float rate = sp.scrub < 0 ? -SCRUB_SPEED : 1.0f;
-        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = (ahead[i] - smooth[i]) / 0.01f * rate;
-    }
-    if (watched) {      /* for sp_body_sync */
-        for (int i = 0; i < 3; i++) sp.placed[i] = smooth[i], sp.set_v[i] = AT(entity, 0x60 + 4 * i, float);
+        for (int i = 0; i < 3; i++) sp.placed[i] = smooth[i], sp.set_v[i] = v[i] * rate;
         sp.target_placed = 1;
     }
 }
@@ -526,6 +527,9 @@ static void follow(void *manager)
     typedef void *meta_fn(void *);
     meta_fn **vtable = *(meta_fn ***)camera;
     if (vtable[0](camera) != g_kart_camera_meta) return;   /* not a kart camera: intro and countdown */
+    /* While rewinding the kart goes backwards at x4: the camera follows too slowly, the kart passes it
+     * and is seen from the front. So the camera is put in its place behind the kart every frame. */
+    if (sp.scrub < 0) AT(camera, 0x11d, uint8_t) = 1;
     if (camera == sp.camera && target == sp.target) return;
     game_make_handle((char *)camera + 0x278, target);
     game_camera_refresh(camera);
@@ -614,6 +618,16 @@ void *sp_rumble(void *a, void *b, int c, void *d, void *e, void *f)
     return game_rumble_original(a, b, c, d, e, f);
 }
 
+/* Called in place of the game's "respawn a kart" (0xe7dd00; used by the fall check 0xe7dac0, respawn
+ * triggers and the respawnKart script): ghost karts follow their keys (a fall in the race is a jump in
+ * them), and rewinding or fast forwarding could send one through a trigger, so no kart respawns in a
+ * spectator run */
+void sp_respawn(void *component, int kind, void *at)
+{
+    if (sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t)) return;
+    game_respawn_original(component, kind, at);
+}
+
 /* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"
  * (0xf350b8): in a spectator run the HUD shows the ghost's laps and the player never finishes */
 void sp_player_lap(void *hud, int lap)
@@ -647,6 +661,9 @@ float sp_clock(void *manager, float game_time)
     float time = sp.time + dt * rate;
     sp.end = end_time(manager);
     if (time > sp.end) time = sp.end;   /* the run stops at the end, and can be rewound */
+    /* Rewinding stops at the race start (GO): before it the karts wait at the line */
+    float start = sp.go_watch == sp.watch ? sp.go : 0.0f;
+    if (time < old && time < start) time = old < start ? old : start;
     if (time < 0.0f) time = 0.0f;
     if (time < old) rewind(manager, time);
     sp.time = time;

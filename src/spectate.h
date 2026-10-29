@@ -36,6 +36,7 @@ extern void game_hud_set_lap(void *hud, int lap) GAME;  /* lap display; the fina
 extern void game_racer_finished(void *system, void *racer) GAME;
 extern void game_kart_immobile(void *kart, int flag) GAME;  /* setImmobileBehavior_VSC */
 extern void *game_rumble_original(void *a, void *b, int c, void *d, void *e, void *f) GAME;    /* hooks.s */
+extern void game_respawn_original(void *component, int kind, void *at) GAME;  /* hooks.s */
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
@@ -116,7 +117,7 @@ struct state {
     int shown_lap;          /* lap the HUD shows, 0 = none yet */
     void *bar_kart;         /* the kart the boost bar reads (hud.c) */
     void *lap_line[7];      /* copies of the game timer's lap lines (hud.c) */
-    float placed[3], set_v[3];  /* the watched kart's placement and speed this frame (sp_body_sync) */
+    float placed[3], set_v[3];  /* the watched kart's placement and motion this frame (sp_body_sync) */
     int target_placed;      /* placed[] is set */
     void *placing;          /* the ghost the game places now (sp_ghost_move), 0 = none */
     float placing_time;     /* at this time */

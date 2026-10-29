@@ -177,4 +177,10 @@ game_rumble_original:
     push r15
     jmp game_rumble_continue
 
-
+# 0xe7dd00: respawns a kart: same as above, for sp_respawn.
+    .globl game_respawn_original
+game_respawn_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_respawn_continue
