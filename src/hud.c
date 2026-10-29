@@ -29,7 +29,6 @@ extern void *g_race_system_meta GAME;   /* CWorldRaceSystemComponent */
 /* The world entity's handle and the entity table, as 0xeaf5f6 reads them */
 extern uint8_t g_world_ready GAME;
 extern uint32_t g_world_id GAME, g_world_no_id GAME;
-extern char *g_entity_table GAME;
 
 #define LAP_TIMER "Lap Timer %"                 /* % = 1..7: the game timer's lap time lines */
 #define TEXT_TEMPLATE "[LapCounterText]"
@@ -43,21 +42,22 @@ static const char HIDE_PIECES[][24] = {"[ReservesText]", "[ReservesBar]"};
 /* Virtual controller, laid out like the game pad: button symbols (Unicode private use, see the
  * port's button_prompts.py), each placed by its middle in HUD space, and a D-pad of four game
  * arrows (steering shows on left / right, reversing on down; the sticks are not shown). Pressed
- * buttons are bright and a bit bigger, the others dark; buttons a ghost never records (L2, R2, the
- * touchpad, Triangle, Circle, D-pad up) stay dark, so the pad looks whole. */
-enum { PAD_L2, PAD_R2, PAD_L1, PAD_R1, PAD_TOUCHPAD, PAD_TRIANGLE,
+ * buttons are bright and a bit bigger, the others dark; buttons a ghost never records (L2, R2,
+ * Triangle, Circle, D-pad up) stay dark, so the pad looks whole. */
+enum { PAD_L2, PAD_R2, PAD_L1, PAD_R1, PAD_TRIANGLE,
        PAD_SQUARE, PAD_CIRCLE, PAD_CROSS, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_COUNT, PAD_SYMBOLS = PAD_UP };
 static const char PAD_TEXT[PAD_SYMBOLS][4] = {"\xee\x80\x87", "\xee\x80\x88", "\xee\x80\x84", "\xee\x80\x86",
-    "\xee\x80\x92", "\xee\x80\x82", "\xee\x80\x83", "\xee\x80\x81", "\xee\x80\x80"};
-/* middle x, middle y, and: symbol width in the font's button image (a fraction of it, igCharMetrics)
+    "\xee\x80\x82", "\xee\x80\x83", "\xee\x80\x81", "\xee\x80\x80"};
+/* middle x, middle y, and: the width the symbol is drawn with (a fraction of the font image width;
+ * measured in game: L1/R1 are drawn narrower than their cells)
  * or the arrow's rotation in degrees */
 #define PAD_X 70.0f
-#define PAD_Y 760.0f
+#define PAD_Y 765.0f
 static const float PAD_AT[PAD_COUNT][3] = {
-    {60, 30, 0.195f}, {340, 30, 0.195f}, {60, 80, 0.285f}, {340, 80, 0.285f}, {200, 120, 0.18f},
-    {340, 130, 0.18f}, {295, 175, 0.18f}, {385, 175, 0.18f},
-    {340, 220, 0.164f},
-    {60, 147, 180}, {60, 203, 0}, {32, 175, 90}, {88, 175, 270}};
+    {60, 30, 0.195f}, {340, 30, 0.195f}, {60, 88, 0.222f}, {342, 88, 0.222f},
+    {341.5f, 130, 0.18f}, {295, 175, 0.18f}, {385, 175, 0.18f},
+    {339.5f, 220, 0.164f},
+    {66, 129, 180}, {63.5f, 211, 0}, {24, 170, 90}, {106, 170, 270}};
 #define PAD_SCALE 2.0f
 #define PAD_WIDTH 270.0f        /* HUD pixels per font image width at PAD_SCALE: symbol width = this x fraction */
 #define PRESSED_SCALE 1.2f
@@ -65,8 +65,8 @@ static const float PAD_AT[PAD_COUNT][3] = {
 static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150, 255};
 #define DARK_OPACITY 0.45f
 /* The help lines (the button symbols are in the font too) */
-static const char HELP[5][48] = {"\xee\x80\x83 PAUSE", "D-PAD LEFT / RIGHT: REWIND / FORWARD",
-    "D-PAD UP / DOWN: SPEED", "\xee\x80\x84 / \xee\x80\x86: OTHER GHOST", "\xee\x80\x82 HIDE CONTROLLER"};
+static const char HELP[4][48] = {"\xee\x80\x83 PAUSE", "D-PAD LEFT / RIGHT: REWIND / FORWARD",
+    "D-PAD UP / DOWN: SPEED", "\xee\x80\x84 / \xee\x80\x86: OTHER GHOST"};
 #define HELP_Y 520.0f
 #define HELP_STEP 34.0f
 
@@ -195,7 +195,7 @@ static void build(void *project, void *root)
         game_set_position(piece, position);
         game_set_rotation(piece, turn);
     }
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
         sp.help[i] = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, HELP_Y + HELP_STEP * i);
         if (!sp.help[i]) continue;
         float scale[3] = {HELP_SCALE, HELP_SCALE, 1.0f};
@@ -216,8 +216,8 @@ static void show_button(int i, int pressed, float x)
     game_set_hidden(piece, !sp.show_pad);
     game_set_opacity(piece, pressed ? 1.0f : DARK_OPACITY);
     game_set_color(piece, pressed ? BRIGHT : DARK);
-    if (i >= PAD_SYMBOLS) {
-        float scale[3] = {ARROW_SCALE * size, ARROW_SCALE * size, 1.0f};
+    if (i >= PAD_SYMBOLS) {         /* arrows keep their size: bigger ones would touch each other */
+        float scale[3] = {ARROW_SCALE, ARROW_SCALE, 1.0f};
         game_set_scale(piece, scale);
         return;
     }
@@ -441,11 +441,9 @@ void hud_frame(void *manager)
     hide_player_icon();
     for (int i = 0; i < child_count(root); i++) {
         void *a = asset(child(root, i));
-        if (a && AT(a, 0, const void *) == g_composition_vtable
-            && same_text(AT(a, 0x10, const char *), "ButtonLegendHorizontal")) {   /* hidden in races */
-            game_set_hidden(child(root, i), !sp.show_pad);
-            game_set_opacity(child(root, i), 1.0f);
-        }
+        /* "WRONG WAY": the player's hidden kart is moved with the ghost (spectate.c) */
+        if (a && AT(a, 0, const void *) == g_composition_vtable && same_text(AT(a, 0x10, const char *), "Octane_RacerHud_WrongWay"))
+            game_set_hidden(child(root, i), 1);
         for (int h = 0; h < (int)(sizeof HIDE_PIECES / sizeof *HIDE_PIECES); h++)
             if (same_text(AT(child(root, i), 0x28, const char *), HIDE_PIECES[h])) game_set_hidden(child(root, i), 1);
     }
@@ -504,8 +502,8 @@ void hud_frame(void *manager)
         AT(sp.status_text, 0x90, float) = sp.status_extent * STATUS_BOX * (float)(at - text);
         game_set_text(sp.status_text, text);
     }
-    for (int i = 0, line = 0; i < 5; i++) {     /* "OTHER GHOST" only with ghosts to switch to */
-        int hidden = !sp.show_pad || (i == 3 && count(list) < 2);
+    for (int i = 0, line = 0; i < 4; i++) {     /* "OTHER GHOST" only with ghosts to switch to */
+        int hidden = i == 3 && count(list) < 2;
         if (!sp.help[i]) continue;
         game_set_hidden(sp.help[i], hidden);
         float at[3] = {60.0f, HELP_Y + HELP_STEP * (line += !hidden) - HELP_STEP, 0.0f};

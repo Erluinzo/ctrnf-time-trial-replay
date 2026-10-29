@@ -291,7 +291,6 @@ static void read_buttons(void *manager)
     if (PRESSED(B_L1)) switch_ghost(manager, -1);
     if (PRESSED(B_R1)) switch_ghost(manager, 1);
     if (PRESSED(B_SQUARE)) sp.paused = !sp.paused;
-    if (PRESSED(B_TRIANGLE)) sp.show_pad = !sp.show_pad;
     if (PRESSED(B_UP) && sp.speed < SPEED_COUNT - 1) sp.speed++;
     if (PRESSED(B_DOWN) && sp.speed > 0) sp.speed--;
     if (PRESSED(B_UP) || PRESSED(B_DOWN)) sp.speed_shown = 2.0f;     /* the HUD shows it for 2 s */
@@ -538,6 +537,37 @@ static void hide_player(void)
     kart_hidden(sp.kart, 1);
 }
 
+/* The level's triggers show parts of the track (e.g. Electron Avenue's road) as the player's kart
+ * comes near, so the hidden kart goes with the watched ghost. It makes no sound (sounds.c), its
+ * engine is silent, and its laps and race end are ignored (sp_player_lap, sp_player_finished). */
+#define CARRY_HEIGHT 800.0f
+static void carry_player(void *manager)
+{
+    void *list = AT(manager, 0x40, void *);
+    void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
+    if (!kart || !sp.kart) return;
+    /* above the ghost: inside the level's large trigger zones, but off the road, so boost pads,
+     * landings and the ground give it no flames and no controller vibration */
+    float above[3] = {AT(kart, 0x20, float), AT(kart, 0x24, float), AT(kart, 0x28, float) + CARRY_HEIGHT};
+    game_set_entity_position(sp.kart, above);
+    void *audio = g_vehicle_audio_meta ? game_find_component(sp.kart, g_vehicle_audio_meta, 0) : 0;
+    if (audio) AT(audio, 0x7c, float) = 0.0f;      /* the engine's wanted volume */
+}
+
+/* Called in place of the game's "lap changed" for the racer HUD (0xe61045) and "racer finished"
+ * (0xf350b8): in a spectator run the HUD shows the ghost's laps and the player never finishes */
+void sp_player_lap(void *hud, int lap)
+{
+    if (sp.active && hud == sp.hud) return;
+    game_hud_set_lap(hud, lap);
+}
+
+void sp_player_finished(void *system, void *racer)
+{
+    if (sp.active) return;
+    game_racer_finished(system, racer);
+}
+
 /* Every frame while ghosts play: returns the new ghost play time (the game adds the frame time). */
 float sp_clock(void *manager, float game_time)
 {
@@ -572,6 +602,7 @@ float sp_clock(void *manager, float game_time)
     follow(manager);
     ghost_look(manager);
     hide_player();
+    carry_player(manager);
     hud_frame(manager);
     sounds_frame(manager, old, time);
     return time;

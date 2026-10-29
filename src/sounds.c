@@ -200,6 +200,10 @@ void *sp_play(void **out, void *system, void **sound, void *entity, const float 
         sp_countdown_go();
     /* only in a spectator run while ghosts play (the manager lives for the whole game; +0x14 _isPlaying) */
     int on = sp.active && sp.manager && sp.manager == g_ghost_manager && AT(sp.manager, 0x14, uint8_t);
+    if (on && entity && sp.kart && (entity == sp.kart || entity == game_get_driver(sp.kart))) {
+        if (out) *out = 0;      /* the player's hidden kart, moved with the ghost, stays silent */
+        return 0;
+    }
     void *list = on && entity && forward() ? AT(sp.manager, 0x40, void *) : 0;
     void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
     void *npc = kart && (entity == kart || entity == game_get_driver(kart)) ? handle_object(sound) : 0;

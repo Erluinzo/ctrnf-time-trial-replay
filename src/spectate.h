@@ -32,6 +32,8 @@ extern void *game_ghost_look_start_new(void *pool) GAME;    /* CKartStartTempora
 extern void game_send_message(void *message, void *target, void *sender) GAME;
 extern void game_set_entity_hidden(void *entity, int hidden) GAME;   /* drawing only */
 extern void *game_get_driver(void *kart) GAME;
+extern void game_hud_set_lap(void *hud, int lap) GAME;  /* lap display; the final lap effect once (+0x88) */
+extern void game_racer_finished(void *system, void *racer) GAME;
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
@@ -46,6 +48,7 @@ extern void *g_race_settings GAME;
 extern void *g_string_pool GAME;
 extern char *g_gui_manager GAME;
 extern char *g_game GAME;                /* +0xd4c game mode, 2 = Time Trial */
+extern char *g_entity_table GAME;        /* entities: +0x20 array, +0x28 generations */
 
 #define LEGEND_L1 5             /* EButtonLegendButton */
 #define SCRUB_SPEED 4.0f        /* D-pad left/right: rewind and fast forward at x4 */
@@ -76,7 +79,7 @@ struct state {
     /* For tests (tools/peek.py) */
     int frames, menu_presses, camera_sets;
     /* HUD (hud.c) */
-    int show_pad;           /* the virtual controller is shown (Triangle) */
+    int show_pad;           /* the virtual controller is shown (always, set at the race start) */
     float go;               /* the watched ghost's race start (its raceStart input), s */
     int go_watch;           /* the ghost go belongs to, -1 = none yet */
     void *root;             /* HUD root our pieces were added to (only compared) */

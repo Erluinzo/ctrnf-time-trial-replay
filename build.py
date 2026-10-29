@@ -35,7 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_set_entity_position': 0x3dc8e0, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_set_entity_position': 0x3dc8e0, 'game_racer_finished': 0xf351b0, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_drift_continue': 0x1041c66, 'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -60,6 +60,8 @@ HOOKS = [
     (0xfceac0, '554889e54157', 'e9', 'sp_menu_open', 1),                   # the ghost menu fills its list
     (0xa3b350, '554889e54157', 'e9', 'sp_input', 1),                       # every frame: the controllers are read
     (0x3d4dd0, '554889e54157', 'e9', 'sp_pad_update', 1),                  # every frame: the pad device is read
+    (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
+    (0xf350b8, 'e9f3000000', 'e9', 'sp_player_finished', 0),               # the player finishes the race
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
     (0x1041c60, '554889e55350', 'e9', 'sp_drift_ratio', 1),                # the HUD reads a kart's powerslide meter
     (0x1041d90, '554889e54157', 'e9', 'sp_air_data', 1),                   # and its air time (jump meter)
