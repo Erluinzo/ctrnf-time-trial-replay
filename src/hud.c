@@ -155,9 +155,26 @@ static void *timer_content(void *root)
     return 0;
 }
 
+/* The spectator buttons in the HUD's button legend (the bar the menus use; EButtonLegendButton) */
+static const struct { int button; char text[32]; } LEGEND[] = {
+    {3, "PAUSE"}, {11, "REWIND / FORWARD / SPEED"}, {4, "CONTROLLER"}, {5, "PREVIOUS GHOST"}, {6, "NEXT GHOST"},
+};
+
+static void legend(void *project, void *manager)
+{
+    int ghosts = count(AT(manager, 0x40, void *));
+    for (int i = 0; i < (int)(sizeof LEGEND / sizeof *LEGEND); i++) {
+        if (LEGEND[i].button >= 5 && ghosts < 2) continue;      /* L1/R1 only with ghosts to switch to */
+        char *text = game_string(g_string_pool, LEGEND[i].text);
+        game_legend_add(project, LEGEND[i].button, &text, 1);
+        game_string_release(g_string_pool, text - 0x10);
+    }
+}
+
 static void build(void *project, void *root)
 {
     sp.root = root;
+    legend(project, sp.manager);
     /* The game's script writes its own current lap line every frame (from lap times it gets only in a
      * real race), so the lap lines shown are copies, at the same place; the game's stay hidden */
     void *timer = timer_content(root);
@@ -414,6 +431,12 @@ void hud_frame(void *manager)
     if (root != sp.root || !sp.status_text || !is_child(root, sp.status_text)) build(project, root);
     hide_player_icon();
     for (int i = 0; i < child_count(root); i++) {
+        void *a = asset(child(root, i));
+        if (a && AT(a, 0, const void *) == g_composition_vtable
+            && same_text(AT(a, 0x10, const char *), "ButtonLegendHorizontal")) {   /* hidden in races */
+            game_set_hidden(child(root, i), !sp.show_pad);
+            game_set_opacity(child(root, i), 1.0f);
+        }
         for (int h = 0; h < (int)(sizeof HIDE_PIECES / sizeof *HIDE_PIECES); h++)
             if (same_text(AT(child(root, i), 0x28, const char *), HIDE_PIECES[h])) game_set_hidden(child(root, i), 1);
     }
