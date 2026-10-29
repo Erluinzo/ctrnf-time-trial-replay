@@ -34,6 +34,7 @@ extern void game_set_entity_hidden(void *entity, int hidden) GAME;   /* drawing 
 extern void *game_get_driver(void *kart) GAME;
 extern void game_hud_set_lap(void *hud, int lap) GAME;  /* lap display; the final lap effect once (+0x88) */
 extern void game_racer_finished(void *system, void *racer) GAME;
+extern void game_kart_immobile(void *kart, int flag) GAME;  /* setImmobileBehavior_VSC */
 /* Game data */
 extern char *g_ghost_manager GAME;
 extern char *g_frame GAME;               /* frame times: +0x18 real, +0x24 game, +0x28 paused */
@@ -48,6 +49,7 @@ extern void *g_race_settings GAME;
 extern void *g_string_pool GAME;
 extern char *g_gui_manager GAME;
 extern char *g_game GAME;                /* +0xd4c game mode, 2 = Time Trial */
+extern void *g_kart_move_meta GAME;      /* the kart component with air time (+0x248) and velocity (+0x254) */
 extern char *g_entity_table GAME;        /* entities: +0x20 array, +0x28 generations */
 
 #define LEGEND_L1 5             /* EButtonLegendButton */

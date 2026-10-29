@@ -274,6 +274,7 @@ static void set_up(void *manager)
         sp.buttons = AT(ctrl, 0xe8, uint64_t);  /* buttons held now (L1 from the menu) are not presses */
     }
     sp.ghosts = count(AT(manager, 0x40, void *));
+    if (kart) game_kart_immobile(kart, 0);      /* no physics: carried with the ghost (carry_player) */
 }
 
 /* Next (step 1) or previous (-1) playing ghost with a kart, from the watched one */
@@ -560,6 +561,11 @@ static void carry_player(void *manager)
      * landings and the ground give it no flames and no controller vibration */
     float above[3] = {AT(kart, 0x20, float), AT(kart, 0x24, float), AT(kart, 0x28, float) + CARRY_HEIGHT};
     game_set_entity_position(sp.kart, above);
+    AT(sp.kart, 0x60, float) = AT(sp.kart, 0x64, float) = AT(sp.kart, 0x68, float) = 0.0f;  /* its speed: no falling */
+    /* not falling: no air time (its wheel flames) and no speed (CKartMove... +0x248 air time,
+     * the kart is immobile from set_up, as the game's scripts make karts stand still) */
+    void *move = g_kart_move_meta ? game_find_component(sp.kart, g_kart_move_meta, 0) : 0;
+    if (move) AT(move, 0x248, float) = 0.0f;
     void *audio = g_vehicle_audio_meta ? game_find_component(sp.kart, g_vehicle_audio_meta, 0) : 0;
     if (audio) AT(audio, 0x7c, float) = 0.0f;      /* the engine's wanted volume */
 }
