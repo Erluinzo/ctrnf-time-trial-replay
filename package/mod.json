@@ -16,5 +16,21 @@
   "patches": [
     "patches/TimeTrialSpectator.xml"
   ],
-  "files": []
+  "files": [
+    {
+      "file": "README.txt",
+      "sha256": "81bdcaa1f47f95d0500e47714c4884c4714e4a385ef0af99457b1501652d3413",
+      "bytes": 1830
+    },
+    {
+      "file": "octr-mod.required",
+      "sha256": "2d5586c93e82ea2dbaaf8ddd5fc63068a0399479ef9824fb49c477b62a4ccc26",
+      "bytes": 19
+    },
+    {
+      "file": "patches/TimeTrialSpectator.xml",
+      "sha256": "13c59b52e1d2e828927d4b647eb9f2750c3ea30555c5885075d463ad3619e8fa",
+      "bytes": 36711
+    }
+  ]
 }
