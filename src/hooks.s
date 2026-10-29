@@ -209,6 +209,14 @@ game_camera_contacts_original:
     push r15
     jmp game_camera_contacts_continue
 
+# 0xe8c810 (kart effects, move component): the slide effects level: same, for sp_slide_level.
+    .globl game_slide_level_original
+game_slide_level_original:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_slide_level_continue
+
 # 0xe916b0 (collision response, contacts, pairs): a kart's collision response: same, for sp_collision.
     .globl game_collision_original
 game_collision_original:

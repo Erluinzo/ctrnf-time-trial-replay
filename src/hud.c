@@ -629,6 +629,43 @@ static void *watched_ghost(void)
     return sp.watch < count(list) ? item(list, sp.watch) : 0;
 }
 
+/* ---- Wheel glow ----
+ * Near the end of a slide (meter almost full) the player's wheels glow (slide level 2, 0xe8e720 starts
+ * 4 wheel effects). Three game rules keep that from a ghost kart; the watched kart is let through. */
+extern int game_slide_level_original(void *effects, void *move) GAME;   /* hooks.s */
+extern float game_drift_ratio(void *move) GAME;                         /* the slide meter, 0..1 */
+extern void game_effect_version(void **out, void *effects, void *asset) GAME;
+extern int game_entity_player(void *entity) GAME;
+
+/* Called in place of the kart effects' slide level (0xe8c810): 0 = no slide, 1 = slide, 2 = slide meter
+ * near full. The game gives 2 only to the local player; the watched kart gets the player's rule.
+ * Effects +0x10 data (+0xa0 the meter level for 2), +0x18 kart; move +0xf8 slide timer. */
+int sp_slide_level(void *effects, void *move)
+{
+    if (!sp.active || AT(effects, 0x18, void *) != watched_kart() || !sliding(AT(effects, 0x18, void *)))
+        return game_slide_level_original(effects, move);
+    return game_drift_ratio(move) > AT(AT(effects, 0x10, void *), 0xa0, float) ? 2 : 1;
+}
+
+/* Called in place of a kart effect's "pick the version" (0xe284d0, from the effect start 0xe27230):
+ * effect assets have a version for the local player (+0x10) and one for other karts (+0x18), picked by
+ * effects +0x25. The wheel glow has no other-kart version, so the watched kart gets the player's. */
+void sp_effect_version(void **out, void *effects, void *asset)
+{
+    uint8_t local = AT(effects, 0x25, uint8_t);
+    if (sp.active && AT(effects, 0x18, void *) == watched_kart()) AT(effects, 0x25, uint8_t) = 1;
+    game_effect_version(out, effects, asset);
+    AT(effects, 0x25, uint8_t) = local;
+}
+
+/* Called in place of "the local player of this entity" (0xcb8b30) where a player version effect is
+ * started (0xb95d46): it is drawn in that player's view only, and a ghost kart has no player (-1), so
+ * it was never started. The watched kart answers as the hidden player kart. */
+int sp_effect_player(void *entity)
+{
+    return game_entity_player(sp.active && sp.kart && entity && entity == watched_kart() ? sp.kart : entity);
+}
+
 /* Called in place of the game's call that gives the boost bar's script the HUD's kart (0xe32050; the
  * game makes it again at the race start): in a spectator run it gets the watched ghost's kart */
 void sp_hud_bar(void *hud, int style)
