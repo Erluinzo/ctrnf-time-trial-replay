@@ -487,6 +487,69 @@ void sp_body_sync(void *entity, const float *position)
 
 #define COAST 2.0f          /* s a finished ghost's kart takes to stop */
 
+/* Falls. A ghost file has no fall: after the kart left the track its keys stand still at the stop key
+ * for about 1.5 s, then jump to where the game put it back (the respawn) and follow Aku Aku's descent.
+ * Off the road, or below it (no key of the rest of the run near that place at that height: a crushed
+ * kart stops on the road), the kart falls on from the stop key with its speed there until the jump. */
+#define RESPAWN_JUMP 1000.0f    /* units in one key step (< 0.05 s): no kart moves that far */
+#define STOP_GAP 0.8f           /* s with no key before the jump */
+#define GRAVITY 4000.0f         /* units/s/s */
+#define FALL_MAX 1000.0f        /* units down at most */
+#define FALL_OUT 0.3f           /* s it goes on forward, then it falls straight down (2500 units forward
+                                 * into the level, the game crashed at 0x13c54ef) */
+#define ROAD_NEAR 400.0f        /* units: a key of the rest of the run this near (and this high) = road */
+
+static float key_pos(void *keys, int k, int i)
+{
+    return AT(item(keys, k), 0xc + 4 * i, float);
+}
+
+/* Key k + 2 is a respawn jump after a stop at key k */
+static int stop_before_jump(void *keys, int k)
+{
+    if (k < 1 || k + 2 >= count(keys) || key_time(keys, k + 1) - key_time(keys, k) < STOP_GAP
+        || key_time(keys, k + 2) - key_time(keys, k + 1) > 0.05f) return 0;
+    float d = 0.0f;
+    for (int i = 0; i < 3; i++) d += (key_pos(keys, k + 2, i) - key_pos(keys, k + 1, i)) * (key_pos(keys, k + 2, i) - key_pos(keys, k + 1, i));
+    return d > RESPAWN_JUMP * RESPAWN_JUMP;
+}
+
+/* The stop at key k is on the road: another part of the run (3 s away or more) passed there */
+static int on_road(void *keys, int k)
+{
+    for (int j = 0; j < count(keys); j++) {
+        float dx = key_pos(keys, j, 0) - key_pos(keys, k, 0), dy = key_pos(keys, j, 1) - key_pos(keys, k, 1);
+        float dz = key_pos(keys, j, 2) - key_pos(keys, k, 2), dt = key_time(keys, j) - key_time(keys, k);
+        if ((dt > 3.0f || dt < -3.0f) && dx * dx + dy * dy < ROAD_NEAR * ROAD_NEAR && dz < ROAD_NEAR / 4 && dz > -ROAD_NEAR / 4) return 1;
+    }
+    return 0;
+}
+
+/* The kart's position and speed while it falls at time t, or 0 when it does not */
+static int falling(void *ghost, float t, float *at, float *v)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    float f;
+    int k = count(keys) > 3 ? key_at(keys, t, &f) : 0;
+    if (!stop_before_jump(keys, k) || t >= key_time(keys, k + 1)) return 0;
+    if (sp.fall_ghost != ghost || sp.fall_key != k) {      /* once per stop: on_road reads every key */
+        sp.fall_ghost = ghost;
+        sp.fall_key = k;
+        sp.fall_on_road = on_road(keys, k);
+    }
+    if (sp.fall_on_road) return 0;
+    float dt = t - key_time(keys, k), step = key_time(keys, k) - key_time(keys, k - 1);
+    for (int i = 0; i < 3; i++) {
+        v[i] = step > 0.0f ? (key_pos(keys, k, i) - key_pos(keys, k - 1, i)) / step : 0.0f;
+        at[i] = key_pos(keys, k, i) + v[i] * (dt < FALL_OUT ? dt : FALL_OUT);
+        if (dt > FALL_OUT) v[i] = 0.0f;
+    }
+    float drop = GRAVITY * dt * dt / 2;
+    at[2] -= drop < FALL_MAX ? drop : FALL_MAX;     /* z is up */
+    v[2] -= drop < FALL_MAX ? GRAVITY * dt : 0.0f;
+    return 1;
+}
+
 /* Called in place of the game's "set position" and "set angles" when it places a ghost kart (0xfce836,
  * 0xfce997, in 0xfce6a0) */
 void sp_place_position(void *entity, const float *position)
@@ -501,10 +564,12 @@ void sp_place_position(void *entity, const float *position)
     /* Its speed (+0x60) along the same path: the game's own speed value jumps at the keys. The speed
      * always points forward, as the camera looks along it (backwards while rewinding, it swung to the
      * front of the kart). */
-    float end = ghost_end(sp.placing), after = sp.placing_time - end;
-    if (after > 0.0f && smooth_pose(sp.placing, end - 0.1f, 0, ahead)) {
+    float end = ghost_end(sp.placing), after = sp.placing_time - end, v[3];
+    if (falling(sp.placing, sp.placing_time, smooth, v)) {
+        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = v[i];
+    } else if (after > 0.0f && smooth_pose(sp.placing, end - 0.1f, 0, ahead)) {
         /* Past its last key (it finished before the others): it coasts on and stops in COAST s */
-        float v[3], left = after < COAST ? 1.0f - after / COAST : 0.0f;
+        float left = after < COAST ? 1.0f - after / COAST : 0.0f;
         float way = (after < COAST ? after : COAST) * (1.0f + left) / 2.0f;    /* s x speed fraction */
         smooth_pose(sp.placing, end, 0, smooth);
         for (int i = 0; i < 3; i++) {
@@ -669,8 +734,35 @@ void *sp_rumble(void *a, void *b, int c, void *d, void *e, void *f)
  * spectator run */
 void sp_respawn(void *component, int kind, void *at)
 {
-    if (sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t)) return;
+    if (sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t) && !sp.respawning) return;
     game_respawn_original(component, kind, at);
+}
+
+/* The ghost file has no fall: after the kart left the track its keys stand still (about 1.5 s), then
+ * jump to where the game put it back (the respawn) and follow Aku Aku's descent. When the watched
+ * ghost plays past such a jump, the game's own respawn runs on its kart (respawnKart_VSC 0x1041a10)
+ * for the Aku Aku / Uka Uka look; the kart stays on its keys. */
+static void respawns(void *manager, float old, float time)
+{
+    void *list = AT(manager, 0x40, void *);
+    void *ghost = sp.watch < count(list) ? item(list, sp.watch) : 0;
+    void *kart = ghost_kart(ghost), *keys = ghost ? AT(ghost, 0x30, void *) : 0;
+    if (!kart || sp.scrub || time <= old || time - old > 0.5f || count(keys) < 2) return;
+    float f;
+    for (int k = key_at(keys, old, &f) + 1; k < count(keys) && key_time(keys, k) <= time; k++) {
+        float d = 0.0f;
+        for (int i = 0; i < 3; i++) {
+            float x = AT(item(keys, k), 0xc + 4 * i, float) - AT(item(keys, k - 1), 0xc + 4 * i, float);
+            d += x * x;
+        }
+        if (key_time(keys, k) <= old || d < RESPAWN_JUMP * RESPAWN_JUMP) continue;
+        if (sp.camera) AT(sp.camera, 0x11d, uint8_t) = 1;   /* the camera jumps with the kart (no sweep through the floor) */
+        /* from where the game put it back: from a fall the game's respawn found no place (crash 0x13c54ef) */
+        game_set_entity_position(kart, &AT(item(keys, k), 0xc, float));
+        sp.respawning = 1;
+        game_respawn_kart(kart, 0, 0);
+        sp.respawning = 0;
+    }
 }
 
 /* Called in place of the game's start boost at GO (0xeb6a37). A kart charges it by pressing accelerate
@@ -804,6 +896,7 @@ float sp_clock(void *manager, float game_time)
     hide_player();
     carry_player(manager);
     hud_frame(manager);
+    respawns(manager, old, time);
     boosts_frame(manager, old, time);
     sounds_frame(manager, old, time);
     return time;
