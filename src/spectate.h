@@ -87,6 +87,7 @@ struct state {
     struct { const char *name; float at; int ok; } log[16];
     void *pad[11];          /* virtual controller buttons (hud.c) */
     void *unghosted;        /* the ghost kart shown without its ghost look */
+    float status_extent;    /* the status text template's box width (hud.c) */
 };
 _Static_assert(sizeof(struct state) <= 0x500, "state must fit 0x2beea80-0x2beef80");
 _Static_assert(__builtin_offsetof(struct state, heard) == 172 && __builtin_offsetof(struct state, sounds_played) == 188

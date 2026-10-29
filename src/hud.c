@@ -11,6 +11,8 @@ extern void game_set_scale(void *placeable, const float *v) GAME;
 extern void game_set_pivot(void *placeable, const float *v) GAME;
 extern void game_set_opacity(void *placeable, float opacity) GAME;
 extern void game_set_hidden(void *placeable, int hidden) GAME;
+extern void *game_find_driver(void *drivers, const char *name) GAME;   /* CRacerDriverData by _name, or 0 */
+extern char *g_racer_manager GAME;      /* +0x18 driver list */
 extern const char g_composition_vtable[] GAME;   /* igGuiComposition */
 extern const char g_minimap_player_vtable[] GAME;    /* CGuiBehaviorMinimapPlayer */
 extern void *g_race_system_meta GAME;   /* CWorldRaceSystemComponent */
@@ -26,6 +28,7 @@ extern char *g_entity_table GAME;
 #define FILL_SPRITE "[octane_ui_hud_boost_fill.tga]"
 #define FILL_FULL 2.77f                         /* the game's fill scale for a full classic turbo meter */
 #define BAR_TEXTURE_WIDTH 244.0f                /* children are placed from the bar texture's width */
+#define STATUS_BOX 0.11f                        /* see hud_frame */
 #define DIM 0.4f                                /* opacity of a button that is not pressed */
 static const char HIDE[][40] = {"Timer", "Octane_RacerHud_LapDisplay"};     /* compositions */
 
@@ -129,6 +132,7 @@ static void build(void *project, void *root)
     sp.root = root;
     sp.time_text = text_piece(project, find(root, TIME_TEMPLATE, 0, 0), root, 60.0f, 60.0f);
     sp.status_text = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, 135.0f);
+    if (sp.status_text) sp.status_extent = AT(sp.status_text, 0x90, float);
     void *label = find(root, LABEL_TEMPLATE, 0, 0);
     for (int i = 0; i < PAD_COUNT; i++) {
         sp.pad[i] = text_piece(project, label, root, PAD_AT[i][0] - PAD_AT[i][2] * PAD_WIDTH / 2, PAD_AT[i][1]);
@@ -177,7 +181,7 @@ static char *put_number(char *at, int n, int digits)
     return at;
 }
 
-/* "DriverBigNorm" -> "BIG NORM", "DriverNTropy" -> "N. TROPY" */
+/* "Dr. N. Tropy" -> "DR. N. TROPY"; driver ids too: "DriverBigNorm" -> "BIG NORM", "DriverNTropy" -> "N. TROPY" */
 static char *put_driver(char *at, const char *name, char *end)
 {
     if (!name) return at;
@@ -190,6 +194,22 @@ static char *put_driver(char *at, const char *name, char *end)
         if (at < end) *at++ = c >= 'a' && c <= 'z' ? (char)(c - 32) : c;
     }
     return at;
+}
+
+/* The name the ghost menu shows for playing ghost i: its driver's display name ("Dr. N. Tropy",
+ * "William P."). A challenge ghost's file may use another character, so its driver is the one of its
+ * header: the playing list is the player's ghost (if chosen, manager +0x48), then the chosen headers
+ * (manager +0x50, CGhostHeaderData +0x18 _driverName) in order. */
+static const char *ghost_name(void *manager, int i, void *ghost)
+{
+    const char *id = AT(ghost, 0x20, const char *);
+    int player = AT(manager, 0x48, uint8_t) != 0;
+    void *headers = AT(manager, 0x50, void *);
+    if (i >= player && i - player < count(headers) && item(headers, i - player))
+        id = AT(item(headers, i - player), 0x18, const char *);
+    void *driver = id && g_racer_manager ? game_find_driver(AT(g_racer_manager, 0x18, void *), id) : 0;
+    const char *name = driver ? AT(driver, 0x60, const char *) : 0;    /* +0x60 _displayName */
+    return name ? name : id;
 }
 
 /* The race start of a ghost: the time of its first input key with the race start bit
@@ -290,7 +310,7 @@ void hud_frame(void *manager)
     *at = 0;
     if (sp.time_text) game_set_text(sp.time_text, text);
 
-    at = put_driver(text, AT(ghost, 0x20, const char *), end);
+    at = put_driver(text, ghost_name(manager, sp.watch, ghost), end);
     at = put(at, "  ");
     at = put_number(at, sp.watch + 1, 1);
     *at++ = '/';
@@ -299,7 +319,13 @@ void hud_frame(void *manager)
     static const char SPEED_TEXT[][8] = {"x0.1", "x0.5", "x1", "x2", "x3", "x4"};
     at = put(at, sp.scrub < 0 ? "<< x4" : sp.scrub > 0 ? ">> x4" : sp.paused ? "PAUSED" : SPEED_TEXT[sp.speed]);
     *at = 0;
-    if (sp.status_text) game_set_text(sp.status_text, text);
+    /* The text is right-aligned in its box and shrinks when it does not fit (the template's asset, shared
+     * with the game's lap counter, sets this): the box gets about the width of this text, so the line
+     * starts at the left with full-size letters. STATUS_BOX: box width per character, as the template's. */
+    if (sp.status_text) {
+        AT(sp.status_text, 0x90, float) = sp.status_extent * STATUS_BOX * (float)(at - text);
+        game_set_text(sp.status_text, text);
+    }
 
     int bits = inputs(ghost);
     float steer = (int8_t)(bits & 0xff) / 127.0f;
