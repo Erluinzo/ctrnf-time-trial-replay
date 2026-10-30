@@ -312,10 +312,10 @@ static void switch_ghost(void *manager, int step)
     }
 }
 
-/* L2 / R2: to the start of this lap (of the lap before when less than LAP_BACK s into it) / of the
+/* L2 / R2: to the start of this lap (of the lap before within LAP_BACK real s of playing) / of the
  * next lap. Into time played before it is a jump (the boosts are put back, boosts.c); past it a fast
  * forward from there (skip_to, sp_clock), so the ghosts' boosts come as in the race. */
-#define LAP_BACK 1.0f
+#define LAP_BACK 1.0f     /* real s: at x4 that is 4 s of the race */
 static void lap_skip(int step)
 {
     if (sp.go_watch != sp.watch) return;
@@ -323,7 +323,7 @@ static void lap_skip(int step)
     if (step < 0) {
         target = sp.go;
         for (int i = 0; i < sp.lap_count; i++)
-            if (sp.lap_starts[i] < sp.time - LAP_BACK) target = sp.lap_starts[i];
+            if (sp.lap_starts[i] < sp.time - LAP_BACK * (SPEEDS[sp.speed] > 1.0f ? SPEEDS[sp.speed] : 1.0f)) target = sp.lap_starts[i];
     } else {
         for (int i = sp.lap_count - 1; i >= 0; i--)
             if (sp.lap_starts[i] > sp.time + 0.05f) target = sp.lap_starts[i];
