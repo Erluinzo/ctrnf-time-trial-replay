@@ -789,7 +789,7 @@ void sp_respawn(void *component, int kind, void *at)
 
 /* The ghost file has no fall: after the kart left the track its keys stand still (about 1.5 s), then
  * jump to where the game put it back (the respawn) and follow Aku Aku's descent. When the watched
- * ghost plays past such a jump, the game's own respawn runs on its kart (respawnKart_VSC 0x1041a10)
+ * ghost plays past such a stop, the game's own respawn runs on its kart (respawnKart_VSC 0x1041a10)
  * for the Aku Aku / Uka Uka look; the kart stays on its keys. */
 static void respawns(void *manager, float old, float time)
 {
@@ -807,10 +807,15 @@ static void respawns(void *manager, float old, float time)
             game_kart_damage(kart, CRUSHED, kart, &done, &other);
             if (control) AT(control, 0x260, uint8_t) = 1;
         }
-        if (key_time(keys, k) <= old || !respawn_jump(keys, k)) continue;
-        if (sp.camera) AT(sp.camera, 0x11d, uint8_t) = 1;   /* the camera jumps with the kart (no sweep through the floor) */
-        /* from where the game put it back: from a fall the game's respawn found no place (crash 0x13c54ef) */
-        game_set_entity_position(kart, &AT(item(keys, k), 0xc, float));
+        if (key_time(keys, k) <= old) continue;
+        /* The game's respawn hides the kart about 1.6 s before Aku Aku brings it down: as in the race,
+         * it starts where the keys stop before the jump (else the kart was hidden while its keys
+         * already came down with Aku Aku, Hot Air Skyway 137.9-139.6 s) */
+        int jump = stop_before_jump(keys, k) ? k + 2 : respawn_jump(keys, k) && !stop_before_jump(keys, k - 2) ? k : 0;
+        if (respawn_jump(keys, k) && sp.camera) AT(sp.camera, 0x11d, uint8_t) = 1;  /* the camera jumps with the kart (no sweep through the floor) */
+        if (!jump) continue;
+        /* from where the game puts it back: from a fall the game's respawn found no place (crash 0x13c54ef) */
+        game_set_entity_position(kart, &AT(item(keys, jump), 0xc, float));
         sp.respawning = 1;
         game_respawn_kart(kart, 0, 0);
         sp.respawning = 0;
