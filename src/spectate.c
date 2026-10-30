@@ -401,7 +401,7 @@ static void ghost_update(void (*update)(void *, void *), void *manager, void *gh
     int on = sp.active && manager == sp.manager;
     if (on && time > ghost_end(ghost)) AT(manager, 0x18, float) = ghost_end(ghost);
     sp.placing = on ? ghost : 0;
-    sp.placing_time = time;     /* past its end: the kart coasts (sp_place_position) */
+    sp.placing_time = time;
     update(manager, ghost);
     sp.placing = 0;
     AT(manager, 0x18, float) = time;
@@ -512,7 +512,6 @@ void sp_body_sync(void *entity, const float *position)
     game_set_entity_position(entity, position);
 }
 
-#define COAST 2.0f          /* s a finished ghost's kart takes to stop */
 
 /* Falls and crushes. A ghost file has neither: the recording stops while the kart falls or is crushed.
  * A fall: the keys stand still at the stop key for about 1.5 s, then jump to where the game put the kart
@@ -586,19 +585,9 @@ void sp_place_position(void *entity, const float *position)
     /* Its speed (+0x60) along the same path: the game's own speed value jumps at the keys. The speed
      * always points forward, as the camera looks along it (backwards while rewinding, it swung to the
      * front of the kart). */
-    float end = ghost_end(sp.placing), after = sp.placing_time - end, v[3];
+    float v[3];
     if (falling(sp.placing, sp.placing_time, smooth, v)) {
         for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = v[i];
-    } else if (after > 0.0f && smooth_pose(sp.placing, end - 0.1f, 0, ahead)) {
-        /* Past its last key (it finished before the others): it coasts on and stops in COAST s */
-        float left = after < COAST ? 1.0f - after / COAST : 0.0f;
-        float way = (after < COAST ? after : COAST) * (1.0f + left) / 2.0f;    /* s x speed fraction */
-        smooth_pose(sp.placing, end, 0, smooth);
-        for (int i = 0; i < 3; i++) {
-            v[i] = (smooth[i] - ahead[i]) / 0.1f;
-            smooth[i] += v[i] * way;
-            AT(entity, 0x60 + 4 * i, float) = v[i] * left;
-        }
     } else if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead)) {
         for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = (ahead[i] - smooth[i]) / 0.01f;
     }
@@ -619,6 +608,12 @@ void sp_place_angles(void *entity, const float *angles, int zero)
 /* Called in place of the game's two calls for each playing ghost (0xfce60e, 0xfce619) */
 void sp_ghost_move(void *manager, void *ghost)
 {
+    /* Past its last key (it finished before the others) the kart is not placed: the game's physics
+     * drives it on with its last inputs, with collisions (sp_collision), as after a race */
+    if (sp.active && manager == sp.manager && AT(manager, 0x18, float) > ghost_end(ghost)) {
+        if (ghost_kart(ghost) == sp.target) sp.target_placed = 0;      /* sp_body_sync leaves it */
+        return;
+    }
     ghost_update(game_ghost_move, manager, ghost);
 }
 
@@ -849,14 +844,15 @@ void sp_camera_contacts(void *camera, void **contacts, int n)
 /* Called in place of a kart's collision response (0xe916b0, a callback for its body's contacts): the
  * ghosts had no collisions in the race, but their karts' bodies still touch the level when placed (e.g.
  * an overhead sign at 112.4 s on Electron Avenue), and a hit while boosting ended all the kart's boosts
- * and its sacred fire. In a spectator run ghost karts and the hidden player kart get no response. */
+ * and its sacred fire. In a spectator run ghost karts (until their last key: then they drive on, as
+ * after a race) and the hidden player kart get no response. */
 long sp_collision(void *response, void *contacts, void *pairs)
 {
     void *entity = sp.active && response ? AT(response, 0x18, void *) : 0;
     void *list = entity && sp.manager ? AT(sp.manager, 0x40, void *) : 0;
     if (entity && entity == sp.kart) return 0;
     for (int i = 0; i < count(list); i++)
-        if (ghost_kart(item(list, i)) == entity) return 0;
+        if (ghost_kart(item(list, i)) == entity && sp.time <= ghost_end(item(list, i))) return 0;     /* finished: it collides */
     return game_collision_original(response, contacts, pairs);
 }
 
@@ -917,7 +913,7 @@ float sp_clock(void *manager, float game_time)
     sp.time = time;
     /* The game's own speed (frame times +0x2c _gameSpeed) follows the playback, so animations,
      * effects and the world stop and change speed with the karts: STOPPED while paused or at the end
-     * of the run (a ghost that finished before coasts on), the playback speed while playing, x1 while
+     * of the run (a ghost that finished before drives on), the playback speed while playing, x1 while
      * rewinding */
     int stopped = sp.paused || time >= sp.end;
     if (g_frame && !paused) {
