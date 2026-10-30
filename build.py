@@ -35,7 +35,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -82,6 +82,7 @@ HOOKS = [
     (0xe2dd10, '554889e54157', 'e9', 'sp_add_boost', 1),                   # a kart gets a boost
     (0xe48cc1, 'e85a3a59ff', 'e8', 'sp_wrong_way_position', 0),            # WRONG WAY check: the kart's position
     (0xe48cdf, 'e8cc4259ff', 'e8', 'sp_wrong_way_angles', 0),              # and its angles
+    (0xe48cd2, 'e8e9030000', 'e8', 'sp_wrong_way_direction', 0),           # and the track's direction there
     (0xe27278, 'e853120000', 'e8', 'sp_effect_version', 0),               # a kart effect picks its player or other-kart version
     (0xb95d46, 'e8e52d1200', 'e8', 'sp_effect_player', 0),                # a player-only effect asks for its kart's local player
     (0x1041d90, '554889e54157', 'e9', 'sp_air_data', 1),                   # the HUD reads a kart's air time (jump meter)

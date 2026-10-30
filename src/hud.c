@@ -22,6 +22,10 @@ static void *world(void);
 static void *watched_ghost(void);
 extern void game_boost_update_original(void *hud, int flag) GAME;              /* hooks.s */
 extern void game_hud_boost_stop(void *hud) GAME;    /* the meter's "stop boost update" */
+extern float game_spline_nearest(void *spline, const float *pos, float *out) GAME;           /* 0xe49470 */
+extern void game_spline_direction(void *spline, const float *pos, float *dir, long flag) GAME;  /* 0xe490c0 */
+extern float game_cos(float a) GAME;    /* the math functions the WRONG WAY check calls */
+extern float game_sin(float a) GAME;
 extern void game_entity_angles(float *out, void *entity) GAME;
 extern void game_speed_original(void *kart, float *speed, int32_t *max) GAME;   /* hooks.s */
 extern void game_speed_ratio_original(void *kart, float *ratio) GAME;           /* hooks.s */
@@ -721,6 +725,70 @@ void sp_wrong_way_position(float *out, void *entity)
 void sp_wrong_way_angles(float *out, void *entity)
 {
     game_entity_angles(out, sp.active && entity == sp.kart && watched_kart() ? watched_kart() : entity);
+}
+
+/* The track's direction at the watched ghost (called in place of 0xe490c0 at 0xe48cd2). The check
+ * takes it from the racer's track segment (CTrackSplineSegment), which changes only when the hidden
+ * kart passes a transition: after a rewind, a lap skip or a ghost switch it stayed on an old one (Hot
+ * Air Skyway: a whole lap), so a ghost driving the right way got WRONG WAY or a wrong one got none.
+ * So the segment nearest the ghost is used: from the racer's, along the segments before and after it
+ * (segment +0x18 start and +0x20 end transition; transition +0x38 segments ending, +0x40 starting
+ * there), or of all of them when that stops far away. While rewinding no WRONG WAY: the direction is
+ * where the kart faces, made from its angles as the check does (0xe48ce4). */
+#define SEGMENTS 128
+#define SEGMENT_NEAR 1500.0f    /* units: a segment this near is the ghost's */
+static float segment_distance(void *segment, const float *pos)
+{
+    float near[4], d = 0.0f;
+    game_spline_nearest(AT(segment, 0x10, void *), pos, near);
+    for (int i = 0; i < 3; i++) d += (near[i] - pos[i]) * (near[i] - pos[i]);
+    return d;
+}
+
+/* The segment nearest pos: from `segment` to nearer neighbours (all = 0), or of every segment reached */
+static void *nearest_segment(void *segment, const float *pos, int all)
+{
+    void *seen[SEGMENTS];
+    seen[0] = segment;
+    int n = 1;
+    float best = segment_distance(segment, pos);
+    for (int at = 0; at < n; at++) {
+        void *from = all ? seen[at] : segment;
+        for (int side = 0; side < 2; side++) {
+            void *transition = AT(from, side ? 0x20 : 0x18, void *);
+            void *list = transition ? AT(transition, side ? 0x40 : 0x38, void *) : 0;
+            for (int i = 0; i < count(list) && n < SEGMENTS; i++) {
+                void *other = item(list, i);
+                int known = !other;
+                for (int j = 0; j < n && !known; j++) known = seen[j] == other;
+                if (known) continue;
+                seen[n++] = other;
+                float d = segment_distance(other, pos);
+                if (d < best) {
+                    best = d;
+                    segment = other;
+                }
+            }
+        }
+        if (!all && segment == from) break;     /* no nearer neighbour */
+    }
+    return all || best < SEGMENT_NEAR * SEGMENT_NEAR ? segment : nearest_segment(segment, pos, 1);
+}
+
+void sp_wrong_way_direction(void *spline, const float *pos, float *dir, long flag)
+{
+    void *kart = sp.active ? watched_kart() : 0;
+    void *segments = spline ? AT(spline, 0x38, void *) : 0;
+    if (kart && sp.scrub < 0) {
+        float a[3];
+        game_entity_angles(a, kart);
+        dir[0] = game_cos(a[1]) * game_cos(a[2]);
+        dir[1] = game_cos(a[1]) * game_sin(a[2]);
+        dir[2] = -game_sin(a[1]);
+        return;
+    }
+    if (kart && count(segments)) spline = AT(nearest_segment(item(segments, 0), pos, 0), 0x10, void *);
+    game_spline_direction(spline, pos, dir, flag);
 }
 
 /* Called in place of the game's speed values for the speedometer (0x1041ca0 speed ratio, 0x1041ce0
