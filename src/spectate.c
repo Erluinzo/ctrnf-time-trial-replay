@@ -509,9 +509,11 @@ static int smooth_pose(void *ghost, float t, int pose, float *out)
 void sp_body_sync(void *entity, const float *position)
 {
     if (sp.active && entity && entity == sp.target && sp.target_placed) position = sp.placed;
+    void *list = sp.active && entity && sp.manager ? AT(sp.manager, 0x40, void *) : 0;
+    for (int i = 0; i < count(list) && i < HISTORY_GHOSTS; i++)
+        if (sp.held[i] && ghost_kart(item(list, i)) == entity) position = sp.hold[i];
     game_set_entity_position(entity, position);
 }
-
 
 /* Falls and crushes. A ghost file has neither: the recording stops while the kart falls or is crushed.
  * A fall: the keys stand still at the stop key for about 1.5 s, then jump to where the game put the kart
@@ -533,20 +535,27 @@ static float key_pos(void *keys, int k, int i)
     return AT(item(keys, k), 0xc + 4 * i, float);
 }
 
-/* Key k + 2 is a respawn jump after a stop at key k */
-static int stop_before_jump(void *keys, int k)
+/* Key k is a respawn jump: a long move in one key step. Keys at speed can be 0.7 s and 1900 units apart
+ * (Hot Air Skyway), a jump takes 0.01 s */
+static int respawn_jump(void *keys, int k)
 {
-    if (k < 1 || k + 2 >= count(keys) || key_time(keys, k + 1) - key_time(keys, k) < STOP_GAP
-        || key_time(keys, k + 2) - key_time(keys, k + 1) > 0.05f) return 0;
+    if (k < 1 || k >= count(keys) || key_time(keys, k) - key_time(keys, k - 1) > 0.05f) return 0;
     float d = 0.0f;
-    for (int i = 0; i < 3; i++) d += (key_pos(keys, k + 2, i) - key_pos(keys, k + 1, i)) * (key_pos(keys, k + 2, i) - key_pos(keys, k + 1, i));
+    for (int i = 0; i < 3; i++) d += (key_pos(keys, k, i) - key_pos(keys, k - 1, i)) * (key_pos(keys, k, i) - key_pos(keys, k - 1, i));
     return d > RESPAWN_JUMP * RESPAWN_JUMP;
 }
 
-/* The kart was crushed at key k: it stopped there with no respawn after */
+/* Key k + 2 is a respawn jump after a stop at key k */
+static int stop_before_jump(void *keys, int k)
+{
+    return k >= 1 && k + 2 < count(keys) && key_time(keys, k + 1) - key_time(keys, k) >= STOP_GAP && respawn_jump(keys, k + 2);
+}
+
+/* The kart was crushed at key k: it stopped there with no respawn after (and not just put back: Aku Aku
+ * holds it about 1.5 s while it comes down about 400 units) */
 static int crush_stop(void *keys, int k)
 {
-    if (k < 1 || k + 1 >= count(keys) || stop_before_jump(keys, k) || key_time(keys, k + 1) - key_time(keys, k) < CRUSH_GAP) return 0;
+    if (k < 1 || k + 1 >= count(keys) || stop_before_jump(keys, k) || respawn_jump(keys, k) || key_time(keys, k + 1) - key_time(keys, k) < CRUSH_GAP) return 0;
     float d = 0.0f;
     for (int i = 0; i < 3; i++) d += (key_pos(keys, k + 1, i) - key_pos(keys, k, i)) * (key_pos(keys, k + 1, i) - key_pos(keys, k, i));
     return d < CRUSH_MOVE * CRUSH_MOVE;
@@ -606,13 +615,29 @@ void sp_place_angles(void *entity, const float *angles, int zero)
 }
 
 /* Called in place of the game's two calls for each playing ghost (0xfce60e, 0xfce619) */
+#define FALL_SPEED 1000.0f      /* units/s down: a finished kart that goes down faster falls */
 void sp_ghost_move(void *manager, void *ghost)
 {
     /* Past its last key (it finished before the others) the kart is not placed: the game's physics
-     * drives it on with its last inputs, with collisions (sp_collision), as after a race */
-    if (sp.active && manager == sp.manager && AT(manager, 0x18, float) > ghost_end(ghost)) {
-        if (ghost_kart(ghost) == sp.target) sp.target_placed = 0;      /* sp_body_sync leaves it */
-        return;
+     * drives it on, with collisions (sp_collision) and no inputs (sp_ghost_inputs). Owner: "If they
+     * fall, just stop them there": it then stays where it left the road (sp_body_sync). */
+    if (sp.active && manager == sp.manager) {
+        void *list = AT(manager, 0x40, void *), *kart = ghost_kart(ghost);
+        int i = 0;
+        while (i < count(list) && i < HISTORY_GHOSTS && item(list, i) != ghost) i++;
+        int finished = AT(manager, 0x18, float) > ghost_end(ghost);
+        if (i < HISTORY_GHOSTS && (!finished || !kart)) sp.held[i] = 0;
+        if (finished) {
+            if (kart == sp.target) sp.target_placed = 0;      /* sp_body_sync leaves it */
+            if (i == HISTORY_GHOSTS || !kart) return;
+            if (!sp.held[i] && AT(kart, 0x68, float) > -FALL_SPEED) game_entity_position(sp.hold[i], kart);
+            else sp.held[i] = 1;
+            if (sp.held[i]) {
+                AT(kart, 0x60, float) = AT(kart, 0x64, float) = AT(kart, 0x68, float) = 0.0f;
+                game_set_entity_position(kart, sp.hold[i]);
+            }
+            return;
+        }
     }
     ghost_update(game_ghost_move, manager, ghost);
 }
@@ -627,6 +652,13 @@ void sp_ghost_inputs(void *manager, void *ghost)
     void *keys = AT(ghost, 0x38, void *);
     int next = AT(ghost, 0x44, int32_t) + 1;
     float time = AT(manager, 0x18, float);
+    /* Past its last key: its last input key, which lets go of every button */
+    if (sp.active && manager == sp.manager && time > ghost_end(ghost) && count(keys)) {
+        AT(manager, 0x18, float) = AT(item(keys, count(keys) - 1), 0xe, uint16_t) / 100.0f;
+        game_ghost_inputs(manager, ghost);
+        AT(manager, 0x18, float) = time;
+        return;
+    }
     if (sp.active && manager == sp.manager && next >= 1 && next + 1 < count(keys)) {
         float t1 = AT(item(keys, next), 0xe, uint16_t) / 100.0f, t2 = AT(item(keys, next + 1), 0xe, uint16_t) / 100.0f;
         /* A key in the same 1/100 s as the one after it is never in effect in the game's search, e.g.
@@ -767,11 +799,6 @@ static void respawns(void *manager, float old, float time)
     if (!kart || sp.scrub || time <= old || time - old > 0.5f || count(keys) < 2) return;
     float f;
     for (int k = key_at(keys, old, &f) + 1; k < count(keys) && key_time(keys, k) <= time; k++) {
-        float d = 0.0f;
-        for (int i = 0; i < 3; i++) {
-            float x = AT(item(keys, k), 0xc + 4 * i, float) - AT(item(keys, k - 1), 0xc + 4 * i, float);
-            d += x * x;
-        }
         if (key_time(keys, k) > old && crush_stop(keys, k)) {
             /* the game's squash; it refuses ghosts (0xe346f0: controller +0x260 _isGhost) */
             void *control = g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
@@ -780,7 +807,7 @@ static void respawns(void *manager, float old, float time)
             game_kart_damage(kart, CRUSHED, kart, &done, &other);
             if (control) AT(control, 0x260, uint8_t) = 1;
         }
-        if (key_time(keys, k) <= old || d < RESPAWN_JUMP * RESPAWN_JUMP) continue;
+        if (key_time(keys, k) <= old || !respawn_jump(keys, k)) continue;
         if (sp.camera) AT(sp.camera, 0x11d, uint8_t) = 1;   /* the camera jumps with the kart (no sweep through the floor) */
         /* from where the game put it back: from a fall the game's respawn found no place (crash 0x13c54ef) */
         game_set_entity_position(kart, &AT(item(keys, k), 0xc, float));

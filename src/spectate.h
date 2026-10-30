@@ -12,6 +12,7 @@ extern void game_ghost_reset(void *manager, void *ghost) GAME;           /* kart
 extern void game_ghost_move(void *manager, void *ghost) GAME;            /* move keys at the play time */
 extern void game_ghost_inputs(void *manager, void *ghost) GAME;          /* input keys at the play time */
 extern void game_set_entity_position(void *entity, const float *position) GAME;
+extern void game_entity_position(float *out, void *entity) GAME;
 extern void game_set_entity_angles(void *entity, const float *angles, int zero) GAME;
 extern void game_start_recording(void *manager, void *racer) GAME;
 extern void *game_player_kart(void *kart_manager, int player, int one) GAME;
@@ -146,6 +147,8 @@ struct state {
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
     float pad_at;           /* ghost time of the watched kart's last boost pad boost */
     float skip_to;          /* L2/R2: fast forward to this lap start, 0 = none (spectate.c) */
+    float hold[HISTORY_GHOSTS][3];      /* a finished ghost kart's last place before a fall (spectate.c) */
+    int held[HISTORY_GHOSTS];           /* it fell: it stays at hold[] */
 };
 _Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212

@@ -22,7 +22,6 @@ static void *world(void);
 static void *watched_ghost(void);
 extern void game_boost_update_original(void *hud, int flag) GAME;              /* hooks.s */
 extern void game_hud_boost_stop(void *hud) GAME;    /* the meter's "stop boost update" */
-extern void game_entity_position(float *out, void *entity) GAME;
 extern void game_entity_angles(float *out, void *entity) GAME;
 extern void game_speed_original(void *kart, float *speed, int32_t *max) GAME;   /* hooks.s */
 extern void game_speed_ratio_original(void *kart, float *ratio) GAME;           /* hooks.s */
