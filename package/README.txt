@@ -1,4 +1,4 @@
-Time Trial Replay Mode 0.9.1 - by Onur
+Time Trial Replay Mode 0.9.2 - by Onur
 
 Watch Time Trial ghosts as a replay.
 

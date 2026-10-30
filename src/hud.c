@@ -76,15 +76,16 @@ static const float PAD_AT[PAD_COUNT][3] = {
 static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150, 255};
 #define DARK_OPACITY 0.45f
 /* The help lines (the button symbols are in the font too, but not the D-pad: its arrows are drawn over
- * the spaces at the start of lines 1 and 2) */
-static const char HELP[5][48] = {"\xee\x80\x83          : PAUSE", "     /        : REWIND / FORWARD",
-    "     /        : SPEED", "\xee\x80\x84 / \xee\x80\x86 : PREVIOUS / NEXT LAP", "\xee\x80\x87 / \xee\x80\x88   : OTHER GHOST"};
+ * the spaces at the start of lines 1 and 2). Each colon right after its buttons, not in one column
+ * (owner: "i don't like that pause square being so far away from the colon") */
+static const char HELP[5][48] = {"\xee\x80\x83 : PAUSE", "     /     : REWIND / FORWARD",
+    "     /     : SPEED", "\xee\x80\x84 / \xee\x80\x86 : PREVIOUS / NEXT LAP", "\xee\x80\x87 / \xee\x80\x88 : OTHER GHOST"};
 /* Help arrows: line, x, y change, rotation (as the controller's); the up arrow's image sits low */
 static const float HELP_ARROW[4][4] = {{1, 70, -1, 90}, {1, 113, -1, 270}, {2, 69, -2, 180}, {2, 113, 0, 0}};
 #define HELP_ARROW_SCALE 0.7f
 /* Box width change per help line: the box only guesses the text's width (see hud_frame), so the
  * spaces under the arrows move with each line's letters; measured in game */
-static const float HELP_BOX_FIX[5] = {-23, 0, -37, 0, 0};
+static const float HELP_BOX_FIX[5] = {0, 0, -37, 0, 0};
 /* Left end of each help line: the D-pad lines start with the arrows' pointed ends, a bit to the left */
 static const float HELP_X[5] = {60, 55, 55, 60, 60};
 #define HELP_Y 522.0f

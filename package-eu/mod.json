@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "time-trial-replay-eu",
   "name": "Time Trial Replay Mode (EU)",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "author": "Onur",
   "description": "Watch Time Trial ghosts as a replay: L1 in the ghost menu.",
   "requiresCapabilities": [
@@ -19,7 +19,7 @@
   "files": [
     {
       "file": "README.txt",
-      "sha256": "bf2dbbf4095763e92c1b1797b654747105171c8b91421e872518b56bba12b358",
+      "sha256": "dc507d57ea7f90d2f06e4ce55a2f3047f11f20c47fa4a04ae07741b513462b09",
       "bytes": 666
     },
     {
@@ -29,7 +29,7 @@
     },
     {
       "file": "patches/TimeTrialReplay-EU.xml",
-      "sha256": "d143f649c5f03c9b09cef57d4430c92097b898828fcd453a8c72118c8cfa34b9",
+      "sha256": "b7d5c1312ad4c272eed687e72133369702b743c8d3818990f8c8f35f533f572b",
       "bytes": 72769
     }
   ]
