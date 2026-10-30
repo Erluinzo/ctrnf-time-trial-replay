@@ -487,17 +487,20 @@ void sp_body_sync(void *entity, const float *position)
 
 #define COAST 2.0f          /* s a finished ghost's kart takes to stop */
 
-/* Falls. A ghost file has no fall: after the kart left the track its keys stand still at the stop key
- * for about 1.5 s, then jump to where the game put it back (the respawn) and follow Aku Aku's descent.
- * Off the road, or below it (no key of the rest of the run near that place at that height: a crushed
- * kart stops on the road), the kart falls on from the stop key with its speed there until the jump. */
+/* Falls and crushes. A ghost file has neither: the recording stops while the kart falls or is crushed.
+ * A fall: the keys stand still at the stop key for about 1.5 s, then jump to where the game put the kart
+ * back (the respawn) and follow Aku Aku's descent; the kart now falls on from the stop key with its
+ * speed there until the jump. A crush (Clockwork Wumpa's crusher blocks): a stop of CRUSH_GAP s or more
+ * with no jump after it; the game's squash plays (respawns). */
 #define RESPAWN_JUMP 1000.0f    /* units in one key step (< 0.05 s): no kart moves that far */
 #define STOP_GAP 0.8f           /* s with no key before the jump */
 #define GRAVITY 4000.0f         /* units/s/s */
 #define FALL_MAX 1000.0f        /* units down at most */
 #define FALL_OUT 0.3f           /* s it goes on forward, then it falls straight down (2500 units forward
                                  * into the level, the game crashed at 0x13c54ef) */
-#define ROAD_NEAR 400.0f        /* units: a key of the rest of the run this near (and this high) = road */
+#define CRUSHED 8               /* EKartDamageType eKDT_Crushed */
+#define CRUSH_GAP 0.95f         /* s with no key and almost no move (< CRUSH_MOVE units) */
+#define CRUSH_MOVE 400.0f
 
 static float key_pos(void *keys, int k, int i)
 {
@@ -514,15 +517,13 @@ static int stop_before_jump(void *keys, int k)
     return d > RESPAWN_JUMP * RESPAWN_JUMP;
 }
 
-/* The stop at key k is on the road: another part of the run (3 s away or more) passed there */
-static int on_road(void *keys, int k)
+/* The kart was crushed at key k: it stopped there with no respawn after */
+static int crush_stop(void *keys, int k)
 {
-    for (int j = 0; j < count(keys); j++) {
-        float dx = key_pos(keys, j, 0) - key_pos(keys, k, 0), dy = key_pos(keys, j, 1) - key_pos(keys, k, 1);
-        float dz = key_pos(keys, j, 2) - key_pos(keys, k, 2), dt = key_time(keys, j) - key_time(keys, k);
-        if ((dt > 3.0f || dt < -3.0f) && dx * dx + dy * dy < ROAD_NEAR * ROAD_NEAR && dz < ROAD_NEAR / 4 && dz > -ROAD_NEAR / 4) return 1;
-    }
-    return 0;
+    if (k < 1 || k + 1 >= count(keys) || stop_before_jump(keys, k) || key_time(keys, k + 1) - key_time(keys, k) < CRUSH_GAP) return 0;
+    float d = 0.0f;
+    for (int i = 0; i < 3; i++) d += (key_pos(keys, k + 1, i) - key_pos(keys, k, i)) * (key_pos(keys, k + 1, i) - key_pos(keys, k, i));
+    return d < CRUSH_MOVE * CRUSH_MOVE;
 }
 
 /* The kart's position and speed while it falls at time t, or 0 when it does not */
@@ -532,12 +533,6 @@ static int falling(void *ghost, float t, float *at, float *v)
     float f;
     int k = count(keys) > 3 ? key_at(keys, t, &f) : 0;
     if (!stop_before_jump(keys, k) || t >= key_time(keys, k + 1)) return 0;
-    if (sp.fall_ghost != ghost || sp.fall_key != k) {      /* once per stop: on_road reads every key */
-        sp.fall_ghost = ghost;
-        sp.fall_key = k;
-        sp.fall_on_road = on_road(keys, k);
-    }
-    if (sp.fall_on_road) return 0;
     float dt = t - key_time(keys, k), step = key_time(keys, k) - key_time(keys, k - 1);
     for (int i = 0; i < 3; i++) {
         v[i] = step > 0.0f ? (key_pos(keys, k, i) - key_pos(keys, k - 1, i)) / step : 0.0f;
@@ -754,6 +749,14 @@ static void respawns(void *manager, float old, float time)
         for (int i = 0; i < 3; i++) {
             float x = AT(item(keys, k), 0xc + 4 * i, float) - AT(item(keys, k - 1), 0xc + 4 * i, float);
             d += x * x;
+        }
+        if (key_time(keys, k) > old && crush_stop(keys, k)) {
+            /* the game's squash; it refuses ghosts (0xe346f0: controller +0x260 _isGhost) */
+            void *control = g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
+            uint8_t done = 0, other = 0;
+            if (control) AT(control, 0x260, uint8_t) = 0;
+            game_kart_damage(kart, CRUSHED, kart, &done, &other);
+            if (control) AT(control, 0x260, uint8_t) = 1;
         }
         if (key_time(keys, k) <= old || d < RESPAWN_JUMP * RESPAWN_JUMP) continue;
         if (sp.camera) AT(sp.camera, 0x11d, uint8_t) = 1;   /* the camera jumps with the kart (no sweep through the floor) */
