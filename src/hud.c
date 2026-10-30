@@ -5,6 +5,10 @@
 
 extern void *game_spawn_placeable(void *project, void *source, void *parent) GAME;
 extern void game_set_text(void *placeable, const char *text) GAME;
+extern void game_set_sprite_material(void **placeable, void **material) GAME;
+extern void game_nav_lose_focus(void *nav, void *event, void *placeable) GAME;
+extern void *game_stream_manager(void) GAME;
+extern void game_find_directory(void **out, void *manager, const char *path, void *pool) GAME;
 extern void game_set_position(void *placeable, const float *v) GAME;
 extern void game_set_scale(void *placeable, const float *v) GAME;
 extern void game_set_pivot(void *placeable, const float *v) GAME;
@@ -73,18 +77,24 @@ static const uint8_t BRIGHT[4] = {255, 255, 255, 255}, DARK[4] = {150, 150, 150,
 #define DARK_OPACITY 0.45f
 /* The help lines (the button symbols are in the font too, but not the D-pad: its arrows are drawn over
  * the spaces at the start of lines 1 and 2) */
-static const char HELP[5][48] = {"\xee\x80\x83 : PAUSE", "     /     : REWIND / FORWARD",
-    "     /     : SPEED", "\xee\x80\x87 / \xee\x80\x88 : PREVIOUS / NEXT LAP", "\xee\x80\x84 / \xee\x80\x86 : OTHER GHOST"};
+static const char HELP[5][48] = {"\xee\x80\x83          : PAUSE", "     /        : REWIND / FORWARD",
+    "     /        : SPEED", "\xee\x80\x84 / \xee\x80\x86 : PREVIOUS / NEXT LAP", "\xee\x80\x87 / \xee\x80\x88   : OTHER GHOST"};
 /* Help arrows: line, x, y change, rotation (as the controller's); the up arrow's image sits low */
 static const float HELP_ARROW[4][4] = {{1, 70, -1, 90}, {1, 113, -1, 270}, {2, 69, -2, 180}, {2, 113, 0, 0}};
 #define HELP_ARROW_SCALE 0.7f
 /* Box width change per help line: the box only guesses the text's width (see hud_frame), so the
  * spaces under the arrows move with each line's letters; measured in game */
-static const float HELP_BOX_FIX[5] = {0, 0, -37, 0, 0};
+static const float HELP_BOX_FIX[5] = {-23, 0, -37, 0, 0};
 /* Left end of each help line: the D-pad lines start with the arrows' pointed ends, a bit to the left */
 static const float HELP_X[5] = {60, 55, 55, 60, 60};
 #define HELP_Y 522.0f
 #define HELP_STEP 34.0f
+/* "REPLAY MODE" above the start lights: its middle, HUD space (measured in game; the timer's text sits
+ * at the left of its box, so a bit to the right) */
+#define MODE_X 973.0f
+#define MODE_Y 146.0f
+#define MODE_SCALE 1.2f
+#define MODE_TEMPLATE "[Timer]"
 
 /* CGhostSnapshotKey bits: 0-7 steering (s8), 8 accelerate, 9 reverse, 10 brake, 11 first jump,
  * 12 second jump, 13 start drift, 14 race start */
@@ -151,6 +161,201 @@ static void *copy(void *project, void *template, void *parent)
     return placeable;
 }
 
+/* The race pause menu's rows are placed by hand and linked by _upItem / _downItem of their navigation
+ * items, and the menu sets those links again each time it opens (rows: Resume, Restart, Quit, Hints).
+ * So every opening (a legend button is added, sp_legend_add) the row under Restart is linked again: a
+ * copy of Restart, pressed in sp_pad_update. Only in Time Trial with a ghost playing. */
+#define NAV_UP 0x110
+#define NAV_DOWN 0x118
+#define NAV_TEXT 0xf0
+
+static void *nav_item(void *row)
+{
+    return item(AT(row, 0xe8, void *), 0);
+}
+
+static void place_row(void *row, float x, float y)
+{
+    float at[3] = {x, y, 0.0f};
+    game_set_position(row, at);
+}
+
+/* The row's icon. The real Time Trial icon can't be used: its texture is only in the main menu's
+ * archive, it does not load in a race, and kept loaded it crashes the game at the next main menu. So
+ * the race HUD's timer: found, not loaded (a load is counted, and this count would never end).
+ * Replay: the game has no replay icon, so the pit stop's ghost sticker, kept loaded (update2.pak is
+ * always there; a first load makes the menu wait).
+ * A directory has its objects at +0x28 and their names at +0x38 (entries of 16 bytes: text, hash). */
+static void *dir_object(void *dir, const char *name)
+{
+    void *names = dir ? AT(dir, 0x38, void *) : 0;
+    for (int i = 0; i < count(names); i++)
+        if (same_text(AT(names, 0x20, const char **)[i * 2], name)) return item(AT(dir, 0x28, void *), i);
+    return 0;
+}
+
+/* An object of a material file the game has loaded in a race, found by name: no file is kept loaded
+ * (the real Time Trial icon's file: Quit crashed). 0 if it is not there. */
+static void *loaded_material(const char *file, const char *name)
+{
+    void *dir = 0;
+    game_find_directory(&dir, game_stream_manager(), file, 0);
+    void *object = dir_object(dir, name);
+    if (dir) game_release(dir);
+    return object;
+}
+
+/* The icon of the mode it switches to: without it the row keeps Restart's icon */
+static void *mode_icon(void)
+{
+    return sp.active ? loaded_material("ui:/materialInstances/juice_Octane_Battle_HUD_Global_materials.igz", "Timer_png_material")
+                     : loaded_material("ui:/materialInstances/guisharedassets/juice_settingselector_materials.igz", "NextArrow_material");
+}
+
+/* The mode's background pattern (each row tiles its own icon behind the menu): without it Restart's.
+ * Replay: Resume's play arrows, like its icon (the options' "ctrtv" pattern is a steering wheel). */
+static void *mode_tiles(void)
+{
+    return sp.active ? loaded_material("ui:/materialInstances/guisharedassets/juice_menu_rightbackground_materials.igz", "octane_ui_raceselect_bg_pattern_timetrial_right")
+                     : loaded_material("ui:/materialInstances/juice_pausemenu_octane_materials.igz", "octane_ui_raceselect_bg_pattern_resume");
+}
+
+/* Every frame: the stopwatch sprite (in the row group, outside the row) follows the row's text piece: +0x60
+ * position, +0x84 scale, +0xe0 opacity. The numbers put it where the row's own icon is, focused or not. */
+void pause_row_icon(void)
+{
+    if (!sp.switch_nav || sp.switch_step) return;
+    /* the row's script is Restart's: when focused it tiles Restart's pattern, so the mode's goes over it */
+    /* (a closing menu's sprites have no asset any more) */
+    void *tiles = sp.switch_tiles, *sprite = sp.switch_tiles_sprite, *now = sprite ? asset(sprite) : 0;
+    if (tiles && now && AT(sp.switch_nav, 0x131, uint8_t) && handle_object(&AT(now, 0x20, void *)) != tiles)
+        game_set_sprite_material(&sprite, &tiles);
+    void *own = sp.switch_own;
+    if (!own) return;
+    void *row = sp.switch_row, *body = content(row);
+    if (!body || child_count(body) < 4 || AT(own, 0x40, void *) != AT(row, 0x40, void *)) return;
+    void *text = child(body, 3);
+    float scale = AT(text, 0x84, float);
+    float at[3] = {AT(row, 0x60, float) + AT(text, 0x60, float) - 308.0f - 260.0f * scale,
+                   AT(row, 0x64, float) + AT(text, 0x64, float) - 55.6f + 13.0f * scale, 0.0f};
+    float size[3] = {0.48f * scale, 0.48f * scale, 1.0f};
+    game_set_position(own, at);
+    game_set_scale(own, size);
+    game_set_opacity(own, AT(text, 0xe0, float));
+}
+
+/* The game's script gives the copy Restart's text and icon just after it is made, so this runs for the
+ * row's first frames. The icon is in the sprites of LevelListName and LevelListName_focused. */
+void pause_row_look(void)
+{
+    if (!sp.switch_nav) return;
+    /* the post-race menu's script places its rows after it opens: 5 rows as made in the file, new second */
+    void *rows = sp.switch_post_race ? AT(sp.switch_row, 0x40, void *) : 0;
+    if (rows) {
+        place_row(child(rows, 3), -24.0f, -210.0f);
+        place_row(sp.switch_row, -12.0f, -105.0f);
+        place_row(child(rows, 2), 0.0f, 0.0f);
+        place_row(child(rows, 1), 12.0f, 105.0f);
+        place_row(child(rows, 0), 24.0f, 210.0f);
+    }
+    void *text = AT(sp.switch_nav, NAV_TEXT, void *);
+    const char *wanted = sp.active ? "SWITCH TO TIME TRIAL" : "SWITCH TO REPLAY MODE";
+    if (text && !same_text(AT(text, 0x30, const char *), wanted)) game_set_text(text, wanted);
+    void *icon = sp.switch_icon;
+    for (int i = 3; icon && i < 5; i++) {
+        void *b = child(child(content(sp.switch_row), i), 0), *now = asset(b);
+        if (!now) continue;
+        if (handle_object(&AT(now, 0x20, void *)) != icon) game_set_sprite_material(&b, &icon);
+        if (i != 3) continue;
+        /* the row's script never ran: the play arrow gets Restart's colour */
+        void *from = AT(sp.switch_restart, 0x60, void *);
+        if (!sp.active) {
+            if (from) AT(b, 0xc0, __int128) = AT(child(child(content(from), 3), 0), 0xc0, __int128);
+            continue;
+        }
+        /* Focus animates the row's icon to dark blue and no hook can stop it: the stopwatch would be a blob
+         * (owner: "i do not want to see the blue at all"). So its sprite is outside the row, in the row group. */
+        if (!sp.switch_own) {
+            void *own = sp.switch_own = copy(AT(sp.switch_row, 0x20, void *), b, AT(sp.switch_row, 0x40, void *));
+            if (!own) continue;
+            AT(own, 0x18, void *) = 0;
+            game_set_sprite_material(&own, &icon);
+            float *color = &AT(own, 0xc0, float);
+            color[0] = color[1] = color[2] = color[3] = 1.0f;
+            AT(own, 0xd, uint8_t) |= 0x10;
+            game_set_rotation(own, &AT(child(content(sp.switch_row), 3), 0x78, float));
+            pause_row_icon();
+        }
+        game_set_hidden(b, 1);
+    }
+}
+
+/* The post-race menu's group of rows (Quit, Change Character, Change Level, Retry, Change Setup: hidden
+ * in Time Trial, its place in the middle is free). Its other groups named Buttons have 1 or 2 rows. */
+static void *post_race_rows(void *placeable, int depth)
+{
+    if (!placeable || depth > 24) return 0;
+    void *a = asset(placeable);
+    int n = child_count(placeable);
+    if (a && same_text(AT(a, 0x10, const char *), "Buttons") && (n == 5 || (sp.switch_row && placeable == AT(sp.switch_row, 0x40, void *)))) return placeable;
+    for (int i = 0; i < n; i++) {
+        void *found = post_race_rows(child(placeable, i), depth + 1);
+        if (found) return found;
+    }
+    return post_race_rows(content(placeable), depth + 1);
+}
+
+void pause_row(void *project)
+{
+    void *top = project ? AT(project, 0x10, void *) : 0;
+    void *rows = top ? find(top, "Buttons_race", 1, 0) : 0;
+    int post_race = !rows;
+    if (post_race) rows = top ? post_race_rows(top, 0) : 0;
+    if (!rows || child_count(rows) < 4) return;
+    int show = g_game && AT(g_game, 0xd4c, int32_t) == 2 && g_ghost_manager && count(AT(g_ghost_manager, 0x40, void *));
+    if (!show) return;
+    /* the row that restarts the race, and the one that comes under the new row */
+    void *restart = child(rows, post_race ? 3 : 1), *hints = child(rows, post_race ? 2 : 3);
+    int rows_before = post_race ? 5 : 4;
+    void *row = child_count(rows) > rows_before ? child(rows, rows_before) : 0;
+    if (!row) {
+        row = copy(project, restart, rows);
+        if (!row) return;
+        /* the copy starts with the first level's icon: Restart's until pause_row_look has the mode's */
+        for (int i = 3; i < 5; i++) {
+            void *b = child(child(content(row), i), 0);
+            void *material = handle_object(&AT(asset(child(child(content(restart), i), 0)), 0x20, void *));
+            game_set_sprite_material(&b, &material);
+        }
+        /* and its focused look: it plays the game's "lose focus" (the event only gives the players),
+         * without its navigate sound: nobody moved */
+        int32_t event[8];
+        event[6] = -1;
+        sp.quiet = 1;
+        game_nav_lose_focus(nav_item(row), event, row);
+        sp.quiet = 0;
+        sp.switch_look = 60;
+        sp.switch_own = 0;
+        sp.switch_icon = mode_icon();
+        sp.switch_tiles = mode_tiles();
+    }
+    sp.switch_tiles_sprite = find(top, "[octane_ui_raceselect_bg_pattern_crashcove.tga]", 1, 0);
+    sp.switch_post_race = post_race;
+    if (!post_race) {
+        place_row(row, 6.0f, 52.5f);
+        place_row(hints, 18.0f, 157.5f);
+        place_row(child(rows, 2), 30.0f, 262.5f);
+    }
+    void *nav = sp.switch_nav = nav_item(row);
+    sp.switch_row = row;
+    sp.switch_restart = nav_item(restart);
+    pause_row_look();
+    AT(nav_item(restart), NAV_DOWN, void *) = row;
+    AT(nav_item(hints), NAV_UP, void *) = row;
+    AT(nav, NAV_UP, void *) = restart;
+    AT(nav, NAV_DOWN, void *) = hints;
+}
+
 /* Text piece placed by its left middle, in HUD space (anchor top left) */
 static void *text_piece(void *project, void *template, void *root, float x, float y)
 {
@@ -182,6 +387,8 @@ static void *timer_content(void *root)
     return 0;
 }
 
+static void rename(void *placeable, const char *name);
+
 static void build(void *project, void *root)
 {
     sp.root = root;
@@ -195,6 +402,15 @@ static void build(void *project, void *root)
     }
     sp.status_text = text_piece(project, find(root, TEXT_TEMPLATE, 0, 0), root, 60.0f, 700.0f);   /* above the controller */
     if (sp.status_text) sp.status_extent = AT(sp.status_text, 0x90, float);
+    /* in the race timer's colours (owner); renamed: the timer's script finds its text by name */
+    sp.mode_text = text_piece(project, find(root, MODE_TEMPLATE, 0, 0), root, MODE_X, MODE_Y);
+    if (sp.mode_text) {
+        rename(sp.mode_text, "[ReplayModeText]");
+        float pivot[3] = {0.5f, 0.5f, 0.5f}, scale[3] = {MODE_SCALE, MODE_SCALE, 1.0f};
+        game_set_pivot(sp.mode_text, pivot);
+        game_set_scale(sp.mode_text, scale);
+        game_set_text(sp.mode_text, "REPLAY MODE");
+    }
     void *label = find(root, LABEL_TEMPLATE, 0, 0), *arrow = find(root, ARROW_TEMPLATE, 1, 0);
     for (int i = 0; i < PAD_COUNT; i++) {
         float x = PAD_X + PAD_AT[i][0], y = PAD_Y + PAD_AT[i][1];
@@ -568,6 +784,8 @@ void hud_frame(void *manager)
     float last = ghost_end_time(ghost), now = (sp.time < last ? sp.time : last) - sp.go;
     set_race_clock(now > 0.0f ? now : 0.0f);
     lap_lines(root, ghost);
+    /* the countdown runs faster with fast forward (spectate.c), so the text goes with the lights */
+    if (sp.mode_text) game_set_hidden(sp.mode_text, race_started());
     char text[80], *at, *end = text + sizeof text - 16;
 
     at = put_driver(text, ghost_name(manager, sp.watch, ghost), end);

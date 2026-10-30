@@ -6,11 +6,13 @@ In the Time Trial ghost menu, pick ghosts, then press **L1 (Watch Replay)**.
 
 | Button | Action |
 |---|---|
-| L1 / R1 | other ghost |
-| L2 / R2 | previous / next lap |
+| L1 / R1 | previous / next lap |
+| L2 / R2 | other ghost |
 | Square | pause |
 | D-pad left / right | rewind / fast forward |
 | D-pad up / down | speed (x0.1 to x4) |
+
+Pause menu: switch between Time Trial and Replay Mode.
 
 With [Ghost Sharing](https://github.com/Erluinzo/ctrnf-ghost-share), watch your friends' ghosts too.
 

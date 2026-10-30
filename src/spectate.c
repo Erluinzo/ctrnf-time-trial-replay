@@ -45,6 +45,12 @@ void sp_menu_focus(void *behavior, void *placeable, int gained)
 void *sp_menu_open(void *level, void **list)
 {
     sp.armed = 0;
+    sp.switch_nav = 0;
+    sp.switch_step = 0;
+    sp.switch_look = 0;
+    /* The run before is over. Left on, the next race's load (before sp_race_start) gave the meter a
+     * ghost's kart (sp_boost_update, sp_hud_bar): its bar stayed empty in the countdown. */
+    sp.active = 0;
     sp.screen = 0;
     show_preview();
     return game_fill_ghosts_original(level, list);
@@ -81,6 +87,10 @@ void sp_race_start(void *manager, void *racer)
 {
     game_start_recording(manager, racer);
     boosts_reset();
+    sp.switch_nav = 0;
+    sp.switch_step = 0;
+    sp.switch_paused = 0;
+    sp.switch_look = 0;
     /* Time Trial only: the game's mode, as the race tick checks it (0xea2d90) */
     sp.active = sp.armed && manager && g_game && AT(g_game, 0xd4c, int32_t) == 2;
     sp.screen = 0;
@@ -176,9 +186,34 @@ static void press(int b)
 uint64_t sp_pad_update(void *device, void *a, void *b, void *c)
 {
     uint64_t result = game_pad_original(device, a, b, c);
-    void *ctrl = sp.forced ? controller() : 0;
+    void *ctrl = sp.forced || sp.switch_nav ? controller() : 0;
     if (!ctrl || AT(ctrl, 0x10, void *) != device) return result;
     void *values = AT(device, 0x18, void *), *changed = AT(device, 0x20, void *);
+    /* The pause menu's switch row: its own press code crashes the game (0x250584, its script was never
+     * started), and so does calling the game's restart from here. So Cross goes up to the real Restart
+     * row, which restarts the race. _isFocused of a navigation item: +0x131 */
+    if (sp.switch_nav && SIGNAL_CROSS < count(values) && SIGNAL_CROSS < count(changed)) {
+        float *cross = &AT(values, 0x20, float *)[SIGNAL_CROSS];
+        uint8_t *cross_changed = &AT(changed, 0x20, uint8_t *)[SIGNAL_CROSS];
+        /* a new press: the one that opened the post-race menu may still be held */
+        int pressed = *cross > 0.5f && *cross_changed;
+        if (pressed) sp.switch_look = 0;
+        if (AT(sp.switch_nav, 0x131, uint8_t) == 1) {
+            if (pressed && !sp.switch_step) sp.switch_step = 1;
+            *cross = 0.0f;
+            *cross_changed = 0;
+        } else if (sp.switch_step == 2 && AT(sp.switch_restart, 0x131, uint8_t) == 1) {
+            sp.armed = !sp.armed;
+            sp.active = 0;      /* see sp_menu_open */
+            sp.unghosted = 0;
+            *cross = 1.0f;
+            *cross_changed = 1;
+            AT(device, 0x10, uint8_t) = 1;
+            sp.switch_step = 3;
+        } else if (!sp.switch_step && pressed && AT(sp.switch_restart, 0x131, uint8_t) == 1) {
+            sp.switch_nav = 0;  /* the real Restart: the menu goes away */
+        }
+    }
     for (int k = 0; k < B_COUNT; k++)
         if (sp.forced >> k & 1 && SIGNALS[k] < count(values) && SIGNALS[k] < count(changed)) {
             AT(values, 0x20, float *)[SIGNALS[k]] = 1.0f;
@@ -244,6 +279,7 @@ static void screen_frame(void *ctrl)
  * adds its own when it opens, which gives the patch its GUI project */
 void sp_legend_add(void *project, int button, char **text, int always)
 {
+    pause_row(project);
     if (sp.screen) {
         sp.screen_project = project;
         kart_hidden(preview_kart(), 1);     /* the screen opens again after a cancel: no character */
@@ -256,6 +292,21 @@ void *sp_input(void *manager)
 {
     g_spectate_kart = sp.shared_next;
     sp.shared_next = 0;
+    /* The level is gone (its exit clears _isPlaying, +0x14; set_up: it did play). Left on, the next load
+     * gives the meter a ghost's kart (see sp_menu_open), and a Restart's new kart can have the old
+     * address: it would keep its ghost look. armed stays: a Restart is a replay again (sp_race_start). */
+    if (sp.active && sp.set_up && sp.manager && !AT(sp.manager, 0x14, uint8_t)) sp.active = 0, sp.unghosted = 0;
+    /* the row is made just before the game's pause flag goes on (0x28): only its end closes the row */
+    int paused = g_frame && AT(g_frame, 0x28, uint8_t);
+    if (paused) sp.switch_paused = 1;
+    /* the post-race menu has no pause: the level's end closes its row (+0x14: the ghosts play until then) */
+    int gone = !g_ghost_manager || !AT(g_ghost_manager, 0x14, uint8_t);
+    if ((!paused && sp.switch_paused) || sp.switch_step == 3 || gone) sp.switch_nav = 0, sp.switch_step = 0, sp.switch_paused = 0, sp.switch_look = 0;
+    if (sp.switch_look) {
+        sp.switch_look--;
+        pause_row_look();
+    }
+    pause_row_icon();
     /* The run is over (level exit clears _isPlaying, +0x14): the game's speed back to normal */
     if (sp.game_speed_set && !(sp.active && sp.manager && AT(sp.manager, 0x14, uint8_t)) && g_frame) {
         AT(g_frame, 0x2c, float) = 1.0f;
@@ -263,9 +314,15 @@ void *sp_input(void *manager)
     }
     void *ctrl = sp.screen || sp.forced ? controller() : 0;
     if (ctrl) screen_frame(ctrl);
+    if (sp.switch_step == 1) {
+        press(B_UP);
+        sp.switch_step = 2;
+    }
     /* The first watched ghost looks like a normal kart from the start: its ghost look fades out in
      * about 0.7 s, so it is ended as soon as its kart is there, during the track's intro */
-    void *ghosts = sp.armed && !sp.active && g_ghost_manager ? AT(g_ghost_manager, 0x40, void *) : 0;
+    /* not while they play (+0x14): after the pause menu's switch that is the old level, and the new
+     * kart can have the old one's address */
+    void *ghosts = sp.armed && !sp.active && g_ghost_manager && !AT(g_ghost_manager, 0x14, uint8_t) ? AT(g_ghost_manager, 0x40, void *) : 0;
     void *first = count(ghosts) ? ghost_kart(item(ghosts, 0)) : 0;
     if (first && first != sp.unghosted) {
         send(game_ghost_look_end_new, first);
@@ -312,7 +369,7 @@ static void switch_ghost(void *manager, int step)
     }
 }
 
-/* L2 / R2: to the start of this lap (of the lap before within LAP_BACK real s of playing) / of the
+/* L1 / R1: to the start of this lap (of the lap before within LAP_BACK real s of playing) / of the
  * next lap. Into time played before it is a jump (the boosts are put back, boosts.c); past it a fast
  * forward from there (skip_to, sp_clock), so the ghosts' boosts come as in the race. */
 #define LAP_BACK 1.0f     /* real s: at x4 that is 4 s of the race */
@@ -342,14 +399,14 @@ static void read_buttons(void *manager)
     sp.buttons = now;
 #define PRESSED(b) (pressed >> sp.bit[b] & 1)
 #define HELD(b) (now >> sp.bit[b] & 1)
-    if (PRESSED(B_L1)) switch_ghost(manager, -1);
-    if (PRESSED(B_R1)) switch_ghost(manager, 1);
+    if (PRESSED(B_L2)) switch_ghost(manager, -1);
+    if (PRESSED(B_R2)) switch_ghost(manager, 1);
     if (PRESSED(B_SQUARE)) sp.paused = !sp.paused;
     if (PRESSED(B_UP) && sp.speed < SPEED_COUNT - 1) sp.speed++;
     if (PRESSED(B_DOWN) && sp.speed > 0) sp.speed--;
     if (PRESSED(B_UP) || PRESSED(B_DOWN)) sp.speed_shown = 2.0f;     /* the HUD shows it for 2 s */
-    if (PRESSED(B_L2)) lap_skip(-1);
-    if (PRESSED(B_R2)) lap_skip(1);
+    if (PRESSED(B_L1)) lap_skip(-1);
+    if (PRESSED(B_R1)) lap_skip(1);
     sp.scrub = (int)HELD(B_RIGHT) - (int)HELD(B_LEFT);
     if (sp.scrub) sp.skip_to = 0.0f;   /* the D-pad ends a lap skip */
     if (sp.skip_to > 0.0f) sp.scrub = 1;
@@ -989,6 +1046,8 @@ void sp_player_lap(void *hud, int lap)
     game_hud_set_lap(hud, lap);
 }
 
+/* A replay never counts as a finished race of the player: no record, ghost, unlock or leaderboard data.
+ * At the function's start, as 0xd29fd0 also comes here (force finish), not only the lap count. */
 void sp_player_finished(void *system, void *racer)
 {
     if (sp.active) return;

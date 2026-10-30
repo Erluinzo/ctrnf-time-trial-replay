@@ -14,11 +14,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.9.0'
+VERSION = '0.9.1'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
-CODE = 0x2319300            # unused zero padding in the code segment (0x2317810-0x233c078), after tomtotom's
-CODE_END = 0x2320000        # drift gauge (to 0x23192df), before ghost sharing (from 0x2320000)
+CODE = 0x2324000            # unused zero padding in the code segment (0x2317810-0x233c078), after ghost sharing
+CODE_END = 0x2338000        # (to 0x2323792), before Time Trial Beat-All (0x2338000) and the reserves meter (0x2339000)
 STATE = 0x2beea80           # after the game's data (ends 0x2bee66d) and ghost sharing's state (0x2bee680, 0x350 used),
 STATE_END = 0x2beef80       # before the reserves meter's state (0x2beef80)
 MAX_WRITE = 4096
@@ -30,11 +30,11 @@ GAME = {
     'game_string_release': 0x1518e30, 'game_menu_prepare': 0xc2e400, 'game_continue_event_new': 0x1255f90,
     'game_ghost_look_end_new': 0x112da10, 'game_ghost_look_start_new': 0x112d8b0, 'game_send_message': 0xd32160,
     'game_set_entity_hidden': 0x3def00, 'game_find_driver': 0xf9c610,
-    'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_position': 0x268f90,
+    'game_spawn_placeable': 0x253c00, 'game_set_text': 0x268ef0, 'game_set_sprite_material': 0x265f80, 'game_stream_manager': 0x22d0e0, 'game_find_directory': 0x14fad90, 'game_nav_lose_focus': 0x125c660, 'game_set_position': 0x268f90,
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_racer_finished': 0xf351b0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_racer_finished_continue': 0xf351b6, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -50,9 +50,10 @@ GAME = {
 
 # EU addresses of the USA ones that moved (eu_map.py); all others are the same
 EU_MOVED = {
+    0x125c660: 0x125c650, 0x14fad90: 0x14fad80,
     0xe7cb70: 0xe7cb60, 0xe7dd00: 0xe7dcf0, 0xe7dd06: 0xe7dcf6, 0xe8c710: 0xe8c700, 0xe8c810: 0xe8c800,
     0xe8c816: 0xe8c806, 0xe916b0: 0xe916a0, 0xe916b6: 0xe916a6, 0xe96691: 0xe96681, 0xea6390: 0xea6380,
-    0xeb6a37: 0xeb6a27, 0xeec470: 0xeec460, 0xf350b8: 0xf350a8, 0xf351b0: 0xf351a0, 0xf9c610: 0xf9c600,
+    0xeb6a37: 0xeb6a27, 0xeec470: 0xeec460, 0xf350b8: 0xf350a8, 0xf351b0: 0xf351a0, 0xf351b6: 0xf351a6, 0xf9c610: 0xf9c600,
     0xfcb9a0: 0xfcb990, 0xfce410: 0xfce400, 0xfce5a2: 0xfce592, 0xfce60e: 0xfce5fe, 0xfce619: 0xfce609,
     0xfce6a0: 0xfce690, 0xfce836: 0xfce826, 0xfce997: 0xfce987, 0xfcea00: 0xfce9f0, 0xfceac0: 0xfceab0,
     0xfceac6: 0xfceab6, 0xfd3940: 0xfd3930, 0x1023c90: 0x1023c80, 0x1024340: 0x1024330, 0x1041450: 0x1041440,
@@ -97,7 +98,7 @@ HOOKS = [
     (0xe2fe7b, 'e810c15aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost fails
     (0xe32bad, 'e8de935aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost (its rating)
     (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
-    (0xf350b8, 'e9f3000000', 'e9', 'sp_player_finished', 0),               # the player finishes the race
+    (0xf351b0, '554889e54157', 'e9', 'sp_player_finished', 1),             # a racer finishes the race (every way there)
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
     (0x1041ca0, '554889e55350', 'e9', 'sp_speed_ratio', 1),                # the HUD reads a kart's speed ratio
     (0x1041ce0, '554889e54157', 'e9', 'sp_forward_speed', 1),              # and its speed (speedometer)

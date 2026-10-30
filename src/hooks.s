@@ -232,3 +232,11 @@ game_collision_original:
     mov rbp, rsp
     push r15
     jmp game_collision_continue
+
+# 0xf351b0 (system, racer): a racer finishes the race: same, for sp_player_finished.
+    .globl game_racer_finished
+game_racer_finished:
+    push rbp
+    mov rbp, rsp
+    push r15
+    jmp game_racer_finished_continue

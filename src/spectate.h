@@ -78,6 +78,7 @@ static const float SPEEDS[] __attribute__((unused)) = {0.1f, 0.5f, 1.0f, 2.0f, 3
 
 /* Spectator buttons: device signals (CController._buttonMap values) and the default bits */
 enum { B_L1, B_R1, B_SQUARE, B_TRIANGLE, B_UP, B_DOWN, B_LEFT, B_RIGHT, B_CIRCLE, B_L2, B_R2, B_COUNT };
+#define SIGNAL_CROSS 7
 static const uint8_t SIGNALS[B_COUNT] __attribute__((unused)) = {8, 10, 5, 6, 0, 1, 2, 3, 4, 9, 11};
 static const uint8_t DEFAULT_BITS[B_COUNT] __attribute__((unused)) = {11, 13, 8, 6, 14, 15, 17, 16, 5, 12, 7};
 
@@ -119,6 +120,18 @@ struct state {
     void *pad[15];          /* virtual controller buttons and D-pad arrows (hud.c) */
     void *help_arrow[4];    /* D-pad arrows of the help lines (hud.c) */
     int bar_stop;           /* the powerslide meter gets "stop" when the play goes on (hud.c) */
+    void *switch_nav;       /* the pause menu's mode switch row: its navigation item (pause_row) */
+    void *switch_row;       /* that row */
+    int switch_look;        /* frames pause_row_look still runs; Cross ends them: the row may be gone soon */
+    void *switch_restart;   /* the real Restart row's navigation item */
+    int switch_paused;      /* the game was paused since the row was made */
+    void *switch_icon;      /* the row's icon */
+    void *switch_own;       /* the stopwatch's own sprite (hud.c) */
+    int switch_post_race;   /* it is in the post-race menu, not the pause menu */
+    int switch_step;        /* Cross on it: 1 Up is pressed, 2 waits for Restart's focus, 3 Cross was pressed there */
+    void *switch_tiles;     /* the mode's background pattern, shown while the row is focused */
+    void *switch_tiles_sprite; /* the menu background's pattern sprite */
+    void *mode_text;        /* "REPLAY MODE" above the start lights, until GO (hud.c) */
     void *shared_next;      /* g_spectate_kart from the next frame on (hud.c) */
     /* boosts.c: every ghost kart's boosts over the play time */
     void *history;
@@ -154,7 +167,7 @@ struct state {
     float placing_time;     /* at this time */
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
     float pad_at;           /* ghost time of the watched kart's last boost pad boost */
-    float skip_to;          /* L2/R2: fast forward to this lap start, 0 = none (spectate.c) */
+    float skip_to;          /* L1/R1: fast forward to this lap start, 0 = none (spectate.c) */
     float hold[HISTORY_GHOSTS][3];      /* a finished ghost kart's last place before a fall (spectate.c) */
     int held[HISTORY_GHOSTS];           /* it fell: it stays at hold[] */
     int hold_set[HISTORY_GHOSTS];       /* hold[] is set */
@@ -218,6 +231,9 @@ static inline float key_time(void *keys, int i)
 /* hud.c */
 void hud_frame(void *manager);
 void hud_late(void);
+void pause_row(void *project);
+void pause_row_look(void);
+void pause_row_icon(void);
 int race_started(void);
 void screen_gui(void *project, int show);
 /* boosts.c */

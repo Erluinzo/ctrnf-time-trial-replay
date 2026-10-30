@@ -1,14 +1,15 @@
-Time Trial Replay Mode 0.9.0 - by Onur
+Time Trial Replay Mode 0.9.1 - by Onur
 
 Watch Time Trial ghosts as a replay.
 
 In the Time Trial ghost menu, pick ghosts, then press L1 (Watch Replay).
-  L1 / R1            other ghost
-  L2 / R2            previous / next lap
+  L1 / R1            previous / next lap
+  L2 / R2            other ghost
   Square             pause
   D-pad left/right   rewind / fast forward
   D-pad up/down      speed (x0.1 to x4)
 
+Pause menu: switch between Time Trial and Replay Mode.
 With Ghost Sharing, watch your friends' ghosts too.
 
 Offline only. Nothing is saved.
