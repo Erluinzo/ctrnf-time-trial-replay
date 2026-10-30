@@ -733,8 +733,8 @@ void sp_wrong_way_angles(float *out, void *entity)
  * Air Skyway: a whole lap), so a ghost driving the right way got WRONG WAY or a wrong one got none.
  * So the segment nearest the ghost is used: from the racer's, along the segments before and after it
  * (segment +0x18 start and +0x20 end transition; transition +0x38 segments ending, +0x40 starting
- * there), or of all of them when that stops far away. While rewinding no WRONG WAY: the direction is
- * where the kart faces, made from its angles as the check does (0xe48ce4). */
+ * there), or of all of them when that stops far away. While rewinding or falling (off the track) no
+ * WRONG WAY: the direction is where the kart faces, made from its angles as the check does (0xe48ce4). */
 #define SEGMENTS 128
 #define SEGMENT_NEAR 1500.0f    /* units: a segment this near is the ghost's */
 static float segment_distance(void *segment, const float *pos)
@@ -779,7 +779,7 @@ void sp_wrong_way_direction(void *spline, const float *pos, float *dir, long fla
 {
     void *kart = sp.active ? watched_kart() : 0;
     void *segments = spline ? AT(spline, 0x38, void *) : 0;
-    if (kart && sp.scrub < 0) {
+    if (kart && (sp.scrub < 0 || sp_watched_falling())) {
         float a[3];
         game_entity_angles(a, kart);
         dir[0] = game_cos(a[1]) * game_cos(a[2]);

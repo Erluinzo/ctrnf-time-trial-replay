@@ -59,6 +59,8 @@ extern void *g_race_settings GAME;
 extern void *g_string_pool GAME;
 extern char *g_gui_manager GAME;
 extern char *g_game GAME;                /* +0xd4c game mode, 2 = Time Trial */
+int sp_watched_falling(void);
+float sp_path_speed(void *ghost, float a, float b);
 extern void *g_crates GAME;              /* the crate manager: +0x10 every crate (CCollectibleCrateComponent) */
 extern void *g_crate_collector_meta GAME;   /* CCrateCollectorComponent (on every kart) */
 extern void game_crate_enter(void *crate, void *collector) GAME;
@@ -152,6 +154,7 @@ struct state {
     float skip_to;          /* L2/R2: fast forward to this lap start, 0 = none (spectate.c) */
     float hold[HISTORY_GHOSTS][3];      /* a finished ghost kart's last place before a fall (spectate.c) */
     int held[HISTORY_GHOSTS];           /* it fell: it stays at hold[] */
+    float fire_speed[HISTORY_GHOSTS];   /* race speed with the fire race_fire keeps (boosts.c), 0 = none */
 };
 _Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212

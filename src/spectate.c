@@ -441,6 +441,25 @@ static int key_at(void *keys, float t, float *f)
     return lo;
 }
 
+static float key_pos(void *keys, int k, int i);
+
+/* A ghost's speed in its race between times a and b: path length over its move keys (units/s) */
+float sp_path_speed(void *ghost, float a, float b)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    float f, length = 0.0f;
+    if (count(keys) < 2 || b <= a) return 0.0f;
+    int k = key_at(keys, a, &f) + 1, first = k;
+    for (; k < count(keys) && key_time(keys, k) <= b; k++) {
+        float d = 0.0f;
+        for (int i = 0; i < 3; i++) d += (key_pos(keys, k, i) - key_pos(keys, k - 1, i)) * (key_pos(keys, k, i) - key_pos(keys, k - 1, i));
+        __asm__("sqrtss %1, %0" : "=x"(d) : "x"(d));
+        length += d;
+    }
+    float span = k - 1 > first ? key_time(keys, k - 1) - key_time(keys, first - 1) : 0.0f;
+    return span > 0.0f ? length / span : 0.0f;
+}
+
 /* Direction (units per second, axis i) at key k: from the key before to the key after */
 static float slope(void *keys, int k, int i)
 {
@@ -578,6 +597,14 @@ static int falling(void *ghost, float t, float *at, float *v)
     at[2] -= drop < FALL_MAX ? drop : FALL_MAX;     /* z is up */
     v[2] -= drop < FALL_MAX ? GRAVITY * dt : 0.0f;
     return 1;
+}
+
+/* The watched ghost falls now (hud.c: no WRONG WAY then) */
+int sp_watched_falling(void)
+{
+    void *list = sp.manager ? AT(sp.manager, 0x40, void *) : 0;
+    float at[3], v[3];
+    return sp.watch < count(list) && falling(item(list, sp.watch), sp.time, at, v);
 }
 
 /* Called in place of the game's "set position" and "set angles" when it places a ghost kart (0xfce836,

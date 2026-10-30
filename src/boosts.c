@@ -16,6 +16,7 @@ extern void (*const game_free)(void *memory) GAME;
 extern void game_boost_create(void *component, void *data, void *source) GAME;
 extern void game_add_boost_original(void **out, void *component, void *definition, void *a, void *b, float strength) GAME;
 extern void *g_boost_meta GAME;                                 /* CKartBoostComponent */
+extern float game_maintained(void *boost) GAME;                /* time a boost is held by its source (0xe2f050) */
 
 #define HIST_STEP 0.1f
 #define HIST_BOOSTS 8       /* a kart had 5 at once (Hot Air Skyway 22.4 s, the 5th its sacred fire) */
@@ -189,6 +190,38 @@ static void start(void *component, const struct sample *s, float old, float time
     }
 }
 
+/* The race's fire. A replay's boosts are the game's own, made from the ghost's inputs, and come out a
+ * little weaker than in the race: over a run the reserves ran short, and the fire went out where the
+ * race kart still had it (Clockwork Wumpa, your ghost: out at 141 s; the race kept its speed with fire,
+ * about 3650 units/s, until 146 s; Hot Air Skyway at x4). The race shows when it ended: the kart's speed
+ * in its keys drops. So in live play, while a ghost's running boost is about to end and its race speed
+ * stays as it was with the fire, the boost keeps FIRE_KEEP s left (the reserves stay low, as the game
+ * counts them; taps add to them as usual). */
+#define FIRE_ENDING 0.3f    /* s left: about to end (more than a frame at x4) */
+#define FIRE_KEEP 0.5f
+#define FIRE_DROP 0.85f     /* the race speed falls below this part of the speed with the fire */
+#define FIRE_LOOK 0.5f      /* s of race speed compared */
+static void race_fire(void *component, void *ghost, int g, float time)
+{
+    void *list = AT(component, 0x28, void *), *active = 0;
+    float speed = 0.0f;
+    for (int i = 0; i < count(list); i++) {     /* the running boost, as the game picks it (0xe2e946) */
+        void *boost = item(list, i), *data = boost ? AT(boost, 0x10, void *) : 0;
+        if (!data || AT(boost, 0x48, uint8_t)) continue;
+        if (!active || AT(data, 0xc, float) >= speed) active = boost, speed = AT(data, 0xc, float);
+    }
+    float left = active ? AT(AT(active, 0x10, void *), 0x1c, float) + AT(active, 0x28, float) + game_maintained(active) - AT(active, 0x18, float) : 0.0f;
+    if (left > FIRE_KEEP + 0.5f) sp.fire_speed[g] = 0.0f;      /* taps filled it again */
+    if (left <= 0.0f || left > FIRE_ENDING) return;
+    float fire = sp.fire_speed[g] > 0.0f ? sp.fire_speed[g] : sp_path_speed(ghost, time - FIRE_LOOK, time);
+    if (fire <= 0.0f || sp_path_speed(ghost, time, time + FIRE_LOOK) < fire * FIRE_DROP) {
+        sp.fire_speed[g] = 0.0f;        /* the race's fire ends here too */
+        return;
+    }
+    AT(active, 0x28, float) += FIRE_KEEP - left;
+    sp.fire_speed[g] = fire;
+}
+
 /* Every frame of a spectator run, after the play time moved from old to time */
 void boosts_frame(void *manager, float old, float time)
 {
@@ -211,6 +244,7 @@ void boosts_frame(void *manager, float old, float time)
         struct sample *samples = ((struct history *)sp.history)->samples + i * sp.history_length;
         if (k >= sp.saved_up_to[i]) {       /* live: the game gives the boosts, they are saved */
             if (time > old) {
+                race_fire(component, item(list, i), i, time);
                 for (int j = sp.saved_up_to[i] + 1; j <= k; j++) save(component, &samples[j], j ? &samples[j - 1] : 0, time);
                 if (k > sp.saved_up_to[i]) sp.saved_up_to[i] = k;
             }
