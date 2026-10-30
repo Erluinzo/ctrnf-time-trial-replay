@@ -665,23 +665,31 @@ void sp_place_angles(void *entity, const float *angles, int zero)
 }
 
 /* Called in place of the game's two calls for each playing ghost (0xfce60e, 0xfce619) */
-#define FALL_SPEED 1000.0f      /* units/s down: a finished kart that goes down faster falls */
+#define FALL_AIR 1.5f       /* s in the air: a finished kart that long off the ground fell (jumps are shorter) */
+#define ON_GROUND 0.05f     /* s in the air at most: on the road */
 void sp_ghost_move(void *manager, void *ghost)
 {
     /* Past its last key (it finished before the others) the kart is not placed: the game's physics
      * drives it on, with collisions (sp_collision) and no inputs (sp_ghost_inputs). Owner: "If they
-     * fall, just stop them there": it then stays where it left the road (sp_body_sync). */
+     * fall, just stop them there": a kart that stays in the air FALL_AIR s is put back where it last
+     * was on the road and stays there (sp_body_sync). Going downhill is no fall (Electron Avenue just
+     * after the line: it was held there, owner: "my kart stopped right at the finish line"). */
     if (sp.active && manager == sp.manager) {
         void *list = AT(manager, 0x40, void *), *kart = ghost_kart(ghost);
         int i = 0;
         while (i < count(list) && i < HISTORY_GHOSTS && item(list, i) != ghost) i++;
         int finished = AT(manager, 0x18, float) > ghost_end(ghost);
-        if (i < HISTORY_GHOSTS && (!finished || !kart)) sp.held[i] = 0;
+        void *move = kart && g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
+        if (i < HISTORY_GHOSTS && (!finished || !move)) sp.held[i] = sp.hold_set[i] = 0;
         if (finished) {
             if (kart == sp.target) sp.target_placed = 0;      /* sp_body_sync leaves it */
-            if (i == HISTORY_GHOSTS || !kart) return;
-            if (!sp.held[i] && AT(kart, 0x68, float) > -FALL_SPEED) game_entity_position(sp.hold[i], kart);
-            else sp.held[i] = 1;
+            if (i == HISTORY_GHOSTS || !move) return;
+            float air = AT(move, 0x248, float);
+            if (!sp.held[i] && (air < ON_GROUND || !sp.hold_set[i])) {
+                game_entity_position(sp.hold[i], kart);
+                sp.hold_set[i] = 1;
+            }
+            if (air > FALL_AIR) sp.held[i] = 1;
             if (sp.held[i]) {
                 AT(kart, 0x60, float) = AT(kart, 0x64, float) = AT(kart, 0x68, float) = 0.0f;
                 game_set_entity_position(kart, sp.hold[i]);
@@ -1032,10 +1040,11 @@ float sp_clock(void *manager, float game_time)
     if (time < old) rewind(manager, time);
     sp.time = time;
     /* The game's own speed (frame times +0x2c _gameSpeed) follows the playback, so animations,
-     * effects and the world stop and change speed with the karts: STOPPED while paused or at the end
-     * of the run (a ghost that finished before drives on), the playback speed while playing, x1 while
-     * rewinding */
-    int stopped = sp.paused || time >= sp.end;
+     * effects and the world stop and change speed with the karts: STOPPED while paused, the playback
+     * speed while playing, x1 while rewinding. At the end of the run the world goes on: every kart is
+     * past its last key and drives on with no input, as finished ghosts do (owner: "my kart stopped
+     * right at the finish line (when it should've continued but with zero input ...)") */
+    int stopped = sp.paused;
     if (g_frame && !paused) {
         float speed = sp.scrub < 0 ? 1.0f : sp.scrub > 0 ? SCRUB_SPEED : stopped ? STOPPED : SPEEDS[sp.speed];
         AT(g_frame, 0x2c, float) = speed > STOPPED && !started && !fast_start ? 1.0f : speed;

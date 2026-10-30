@@ -157,6 +157,7 @@ struct state {
     float skip_to;          /* L2/R2: fast forward to this lap start, 0 = none (spectate.c) */
     float hold[HISTORY_GHOSTS][3];      /* a finished ghost kart's last place before a fall (spectate.c) */
     int held[HISTORY_GHOSTS];           /* it fell: it stays at hold[] */
+    int hold_set[HISTORY_GHOSTS];       /* hold[] is set */
     float crash_at[HISTORY_GHOSTS];     /* ghost time of a ghost's last crash (boosts.c) */
     float fire_speed[HISTORY_GHOSTS];   /* race speed with the fire race_fire keeps (boosts.c), 0 = none */
 };
