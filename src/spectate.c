@@ -817,6 +817,31 @@ static void respawns(void *manager, float old, float time)
     }
 }
 
+/* Crates: ghost karts never enter a crate's trigger (0xeebfa0), so the "!" crate the ghost broke
+ * (Clockwork Wumpa ~71 s) stayed and its hole never opened. When the watched ghost plays forward to a
+ * crate that can still break (+0x2c), the game's "kart entered the crate" (0xeec470) runs with the ghost
+ * kart's crate collector (the player-only part, Wumpa fruit, needs a racer: ghosts have none). A rewind
+ * does not bring a broken crate back. */
+#define CRATE_REACH 300.0f      /* units from its middle (the ghost that broke it passed at 249) */
+static void crates(void *manager, float old, float time)
+{
+    void *ghosts = AT(manager, 0x40, void *);
+    void *kart = sp.watch < count(ghosts) ? ghost_kart(item(ghosts, sp.watch)) : 0;
+    void *list = g_crates ? AT(g_crates, 0x10, void *) : 0;
+    void *collector = kart && g_crate_collector_meta ? game_find_component(kart, g_crate_collector_meta, 0) : 0;
+    if (!collector || sp.scrub || time <= old || time - old > 0.5f) return;
+    float at[3], crate[3];
+    game_entity_position(at, kart);
+    for (int i = 0; i < count(list); i++) {
+        void *c = item(list, i);
+        if (!c || !AT(c, 0x2c, uint8_t) || !AT(c, 0x18, void *)) continue;
+        game_entity_position(crate, AT(c, 0x18, void *));
+        float d = 0.0f;
+        for (int j = 0; j < 3; j++) d += (crate[j] - at[j]) * (crate[j] - at[j]);
+        if (d < CRATE_REACH * CRATE_REACH) game_crate_enter(c, collector);
+    }
+}
+
 /* Called in place of the game's start boost at GO (0xeb6a37). A kart charges it by pressing accelerate
  * in the countdown (0xe7cd90: +0x24 charge, +0x20 level), but ghost files keep no input before GO, so
  * a ghost kart never gets it. A ghost that started with one moved fast at once (measured: about 700
@@ -954,6 +979,7 @@ float sp_clock(void *manager, float game_time)
     carry_player(manager);
     hud_frame(manager);
     respawns(manager, old, time);
+    crates(manager, old, time);
     boosts_frame(manager, old, time);
     sounds_frame(manager, old, time);
     return time;
