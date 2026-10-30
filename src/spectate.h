@@ -64,6 +64,7 @@ float sp_path_speed(void *ghost, float a, float b);
 extern void *g_crates GAME;              /* the crate manager: +0x10 every crate (CCollectibleCrateComponent) */
 extern void *g_crate_collector_meta GAME;   /* CCrateCollectorComponent (on every kart) */
 extern void game_crate_enter(void *crate, void *collector) GAME;
+extern void *g_render_matrix_meta GAME;   /* COverrideRenderMatrixComponent */
 extern void *g_kart_move_meta GAME;      /* the kart component with air time (+0x248) and velocity (+0x254) */
 extern char *g_entity_table GAME;        /* entities: +0x20 array, +0x28 generations */
 

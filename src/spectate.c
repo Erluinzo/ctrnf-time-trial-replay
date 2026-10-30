@@ -826,7 +826,12 @@ static void respawns(void *manager, float old, float time)
     if (!kart || sp.scrub || time <= old || time - old > 0.5f || count(keys) < 2) return;
     float f;
     for (int k = key_at(keys, old, &f) + 1; k < count(keys) && key_time(keys, k) <= time; k++) {
-        if (key_time(keys, k) > old && crush_stop(keys, k)) {
+        /* not while still flat from the crush before (Clockwork Wumpa: crushed again 1.7 s later): the
+         * game squashed it again and the first squash's sound never ended (owner: "the sound stays there
+         * forever"). COverrideRenderMatrixComponent +0xc4: the kart's height scale (0.33 flat). */
+        void *matrix = g_render_matrix_meta ? game_find_component(kart, g_render_matrix_meta, 0) : 0;
+        int flat = matrix && AT(matrix, 0xc4, float) < 0.99f;
+        if (key_time(keys, k) > old && crush_stop(keys, k) && !flat) {
             /* the game's squash; it refuses ghosts (0xe346f0: controller +0x260 _isGhost) */
             void *control = g_kart_move_meta ? game_find_component(kart, g_kart_move_meta, 0) : 0;
             uint8_t done = 0, other = 0;
