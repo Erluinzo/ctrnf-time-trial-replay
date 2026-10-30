@@ -31,6 +31,17 @@ extern void *game_play_original(void **out, void *system, void **sound, void *en
 #define GRID 0.02f              /* movement is checked every 0.02 s of ghost time */
 #define VOICE_DELAY 0.2f        /* the voice script plays the hit line 0.2 s after the hit */
 
+/* text contains part, ignoring case */
+static int contains(const char *text, const char *part)
+{
+    for (; *text; text++) {
+        const char *a = text, *b = part;
+        while (*a && *b && (*a | 32) == (*b | 32)) a++, b++;
+        if (!*b) return 1;
+    }
+    return 0;
+}
+
 static int forward(void)
 {
     return !sp.paused && !sp.scrub;
@@ -210,7 +221,10 @@ void *sp_play(void **out, void *system, void **sound, void *entity, const float 
     void *list = on && entity && forward() ? AT(sp.manager, 0x40, void *) : 0;
     void *kart = sp.watch < count(list) ? ghost_kart(item(list, sp.watch)) : 0;
     void *npc = kart && (entity == kart || entity == game_get_driver(kart)) ? handle_object(sound) : 0;
-    void *plr = npc ? plr_twin(npc) : 0;
+    /* Not the squash's own sound ("crushed_in"): its "_PLR" version did not end when the squash ended
+     * other than the game's usual way (a second squash, a rewind), and stayed for the rest of the run
+     * (owner: "the sound stays there forever"); the hit, spin, voice and pop-out sounds stay */
+    void *plr = npc && !contains(AT(npc, 0x30, const char *), "crushed_in") ? plr_twin(npc) : 0;
     if (!plr) return game_play_original(out, system, sound, entity, position, volume);
     void *slot = 0;
     game_make_handle(&slot, plr);

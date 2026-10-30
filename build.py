@@ -45,7 +45,7 @@ GAME = {
     'g_ghost_manager': 0x2abc3d0, 'g_frame': 0x2ab4100, 'g_input_manager': 0x2ac2e90, 'g_players': 0x2ad1160, 'g_kart_manager': 0x2ac57c0,
     'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
     'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_racer_manager': 0x2ad4b70, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'g_minimap_player_vtable': 0x2544ea0,
-    'g_kart_move_meta': 0x2ac4580, 'g_render_matrix_meta': 0x2acf5d8, 'game_maintained': 0xe2f050, 'g_crates': 0x2acdc40, 'g_crate_collector_meta': 0x2ab5c78, 'game_crate_enter': 0xeec470, 'g_race_clock_meta': 0x2ad3ec8, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
+    'g_kart_move_meta': 0x2ac4580, 'g_render_matrix_meta': 0x2acf5d8, 'g_kart_damage_meta': 0x2ac5018, 'game_maintained': 0xe2f050, 'g_crates': 0x2acdc40, 'g_crate_collector_meta': 0x2ab5c78, 'game_crate_enter': 0xeec470, 'g_race_clock_meta': 0x2ad3ec8, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
     'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
 }
 

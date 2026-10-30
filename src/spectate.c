@@ -380,6 +380,12 @@ static void rewind(void *manager, float time)
         if (!ghost_kart(ghost) || !count(keys)) continue;
         AT(ghost, 0x40, int64_t) = 0;   /* _playMoveKeyIndex and _playSnapshotKeyIndex */
         if (count(keys) < 2 || time < key_time(keys, 1)) game_ghost_reset(manager, ghost);
+        /* A squash (respawns()) ends now: the game pops the kart out and ends its sound, so the
+         * replay squashes it again (else it was still flat there and got none). CKartDamageComponent:
+         * +0x4c damage type (-1 none), +0x58 its end (game clock ticks, frame times +0x20). */
+        void *damage = g_kart_damage_meta ? game_find_component(ghost_kart(ghost), g_kart_damage_meta, 0) : 0;
+        if (damage && g_frame && AT(damage, 0x4c, int32_t) != -1 && AT(damage, 0x58, int32_t) > AT(g_frame, 0x20, int32_t))
+            AT(damage, 0x58, int32_t) = AT(g_frame, 0x20, int32_t);
     }
 }
 
@@ -442,6 +448,23 @@ static int key_at(void *keys, float t, float *f)
 }
 
 static float key_pos(void *keys, int k, int i);
+
+/* A ghost's speed along the ground (z is up) in its race between times a and b, from its places at a
+ * and b (straight lines between the keys, as the game places ghosts): a stop shows at once, also when
+ * its next key is far */
+float sp_place_speed(void *ghost, float a, float b)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    float at[2][3], f, d = 0.0f;
+    if (count(keys) < 2 || b <= a) return 0.0f;
+    for (int n = 0; n < 2; n++) {
+        int k = key_at(keys, n ? b : a, &f), k2 = k + 1 < count(keys) ? k + 1 : k;
+        for (int i = 0; i < 3; i++) at[n][i] = key_pos(keys, k, i) + (key_pos(keys, k2, i) - key_pos(keys, k, i)) * f;
+    }
+    for (int i = 0; i < 2; i++) d += (at[1][i] - at[0][i]) * (at[1][i] - at[0][i]);
+    __asm__("sqrtss %1, %0" : "=x"(d) : "x"(d));
+    return d / (b - a);
+}
 
 /* A ghost's speed in its race between times a and b: path length over its move keys (units/s) */
 float sp_path_speed(void *ghost, float a, float b)
@@ -826,9 +849,9 @@ static void respawns(void *manager, float old, float time)
     if (!kart || sp.scrub || time <= old || time - old > 0.5f || count(keys) < 2) return;
     float f;
     for (int k = key_at(keys, old, &f) + 1; k < count(keys) && key_time(keys, k) <= time; k++) {
-        /* not while still flat from the crush before (Clockwork Wumpa: crushed again 1.7 s later): the
-         * game squashed it again and the first squash's sound never ended (owner: "the sound stays there
-         * forever"). COverrideRenderMatrixComponent +0xc4: the kart's height scale (0.33 flat). */
+        /* not while still flat from the crush before (Clockwork Wumpa: crushed again 1.7 s later; the
+         * game popped it out and squashed it again at once). COverrideRenderMatrixComponent +0xc4: the
+         * kart's height scale (0.33 flat). */
         void *matrix = g_render_matrix_meta ? game_find_component(kart, g_render_matrix_meta, 0) : 0;
         int flat = matrix && AT(matrix, 0xc4, float) < 0.99f;
         if (key_time(keys, k) > old && crush_stop(keys, k) && !flat) {

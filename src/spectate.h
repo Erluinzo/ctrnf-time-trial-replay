@@ -61,9 +61,11 @@ extern char *g_gui_manager GAME;
 extern char *g_game GAME;                /* +0xd4c game mode, 2 = Time Trial */
 int sp_watched_falling(void);
 float sp_path_speed(void *ghost, float a, float b);
+float sp_place_speed(void *ghost, float a, float b);
 extern void *g_crates GAME;              /* the crate manager: +0x10 every crate (CCollectibleCrateComponent) */
 extern void *g_crate_collector_meta GAME;   /* CCrateCollectorComponent (on every kart) */
 extern void game_crate_enter(void *crate, void *collector) GAME;
+extern void *g_kart_damage_meta GAME;     /* CKartDamageComponent */
 extern void *g_render_matrix_meta GAME;   /* COverrideRenderMatrixComponent */
 extern void *g_kart_move_meta GAME;      /* the kart component with air time (+0x248) and velocity (+0x254) */
 extern char *g_entity_table GAME;        /* entities: +0x20 array, +0x28 generations */
@@ -155,6 +157,7 @@ struct state {
     float skip_to;          /* L2/R2: fast forward to this lap start, 0 = none (spectate.c) */
     float hold[HISTORY_GHOSTS][3];      /* a finished ghost kart's last place before a fall (spectate.c) */
     int held[HISTORY_GHOSTS];           /* it fell: it stays at hold[] */
+    float crash_at[HISTORY_GHOSTS];     /* ghost time of a ghost's last crash (boosts.c) */
     float fire_speed[HISTORY_GHOSTS];   /* race speed with the fire race_fire keeps (boosts.c), 0 = none */
 };
 _Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");

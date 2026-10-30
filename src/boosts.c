@@ -201,6 +201,8 @@ static void start(void *component, const struct sample *s, float old, float time
 #define FIRE_KEEP 0.5f
 #define FIRE_DROP 0.85f     /* the race speed falls below this part of the speed with the fire */
 #define FIRE_LOOK 0.5f      /* s of race speed compared */
+#define FIRE_SPEED 3300.0f  /* units/s: the race speed with the fire (Clockwork Wumpa ~3650, Hot Air Skyway
+                             * ~4000; without it up to ~3100) */
 static void race_fire(void *component, void *ghost, int g, float time)
 {
     void *list = AT(component, 0x28, void *), *active = 0;
@@ -214,12 +216,42 @@ static void race_fire(void *component, void *ghost, int g, float time)
     if (left > FIRE_KEEP + 0.5f) sp.fire_speed[g] = 0.0f;      /* taps filled it again */
     if (left <= 0.0f || left > FIRE_ENDING) return;
     float fire = sp.fire_speed[g] > 0.0f ? sp.fire_speed[g] : sp_path_speed(ghost, time - FIRE_LOOK, time);
-    if (fire <= 0.0f || sp_path_speed(ghost, time, time + FIRE_LOOK) < fire * FIRE_DROP) {
+    if (fire < FIRE_SPEED || sp_path_speed(ghost, time, time + FIRE_LOOK) < fire * FIRE_DROP) {
         sp.fire_speed[g] = 0.0f;        /* the race's fire ends here too */
         return;
     }
     AT(active, 0x28, float) += FIRE_KEEP - left;
     sp.fire_speed[g] = fire;
+}
+
+/* Crashes. A kart that hits a wall loses its boosts (the collision response ends them, 0xe92e90), but
+ * ghost karts get no collision response (sp_collision: a touch ended the sacred fire, Hot Air Skyway
+ * 112.4 s), so after a wall hit they kept their fire (Clockwork Wumpa 67.9 s: from 3000 units/s to a
+ * stop, the fire went on to 71 s; owner: "i hit a wall but the ghost still keeps my flames"). A crash in
+ * the race shows in the keys: the speed falls below CRASH_DROP of what it was within CRASH_LOOK s. Then
+ * the ghost's boosts end. Speeds along the ground: a landing from a drop is no crash (Electron Avenue
+ * 9.1 s). */
+#define CRASH_LOOK 0.15f
+#define CRASH_DROP 0.4f
+#define CRASH_SPEED 1500.0f     /* units/s before at least */
+#define CRASH_HOLD 1.5f         /* s after a crash while it stays slower than CRASH_SPEED */
+#define CRASH_TELEPORT 15000.0f /* faster: a respawn jump (its fall ended the boosts) */
+static void crash(void *component, void *ghost, int g, float time)
+{
+    void *keys = AT(ghost, 0x30, void *);
+    if (!count(keys) || time + CRASH_LOOK > key_time(keys, count(keys) - 1)) return;     /* its finish */
+    float before = sp_place_speed(ghost, time - CRASH_LOOK, time), after = sp_place_speed(ghost, time, time + CRASH_LOOK);
+    int crashed = before >= CRASH_SPEED && before <= CRASH_TELEPORT && after < before * CRASH_DROP;
+    /* still stopped at the wall: boosts started there end too (a slide boost at the wall, 68.0 s) */
+    int stopped = time > sp.crash_at[g] && time - sp.crash_at[g] < CRASH_HOLD && after < CRASH_SPEED;
+    if (crashed && !stopped) sp.crash_at[g] = time;
+    if (!crashed && !stopped) return;
+    void *list = AT(component, 0x28, void *);
+    for (int i = 0; i < count(list); i++)
+        if (item(list, i)) {
+            AT(item(list, i), 0x18, float) = EXPIRED;
+            AT(item(list, i), 0x28, float) = 0.0f;
+        }
 }
 
 /* Every frame of a spectator run, after the play time moved from old to time */
@@ -244,6 +276,7 @@ void boosts_frame(void *manager, float old, float time)
         struct sample *samples = ((struct history *)sp.history)->samples + i * sp.history_length;
         if (k >= sp.saved_up_to[i]) {       /* live: the game gives the boosts, they are saved */
             if (time > old) {
+                crash(component, item(list, i), i, time);
                 race_fire(component, item(list, i), i, time);
                 for (int j = sp.saved_up_to[i] + 1; j <= k; j++) save(component, &samples[j], j ? &samples[j - 1] : 0, time);
                 if (k > sp.saved_up_to[i]) sp.saved_up_to[i] = k;
