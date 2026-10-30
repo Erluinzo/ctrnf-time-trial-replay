@@ -68,9 +68,9 @@ static const float SPEEDS[] __attribute__((unused)) = {0.1f, 0.5f, 1.0f, 2.0f, 3
 #define NORMAL_SPEED 2
 
 /* Spectator buttons: device signals (CController._buttonMap values) and the default bits */
-enum { B_L1, B_R1, B_SQUARE, B_TRIANGLE, B_UP, B_DOWN, B_LEFT, B_RIGHT, B_CIRCLE, B_COUNT };
-static const uint8_t SIGNALS[B_COUNT] __attribute__((unused)) = {8, 10, 5, 6, 0, 1, 2, 3, 4};
-static const uint8_t DEFAULT_BITS[B_COUNT] __attribute__((unused)) = {11, 13, 8, 6, 14, 15, 17, 16, 5};
+enum { B_L1, B_R1, B_SQUARE, B_TRIANGLE, B_UP, B_DOWN, B_LEFT, B_RIGHT, B_CIRCLE, B_L2, B_R2, B_COUNT };
+static const uint8_t SIGNALS[B_COUNT] __attribute__((unused)) = {8, 10, 5, 6, 0, 1, 2, 3, 4, 9, 11};
+static const uint8_t DEFAULT_BITS[B_COUNT] __attribute__((unused)) = {11, 13, 8, 6, 14, 15, 17, 16, 5, 12, 7};
 
 #define HISTORY_GHOSTS 8
 struct state {
@@ -145,6 +145,7 @@ struct state {
     float placing_time;     /* at this time */
     int game_speed_set;     /* the patch changed the game's speed (restored after the run) */
     float pad_at;           /* ghost time of the watched kart's last boost pad boost */
+    float skip_to;          /* L2/R2: fast forward to this lap start, 0 = none (spectate.c) */
 };
 _Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212
@@ -208,6 +209,7 @@ void screen_gui(void *project, int show);
 /* boosts.c */
 void boosts_frame(void *manager, float old, float time);
 void boosts_reset(void);
+float boosts_saved_until(void);
 void sp_add_boost(void **out, void *component, void *definition, void *a, void *b, float strength);
 /* sounds.c */
 void sounds_frame(void *manager, float from, float to);

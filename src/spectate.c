@@ -103,6 +103,7 @@ void sp_race_start(void *manager, void *racer)
     sp.root = 0;
     sp.bar_kart = 0;
     sp.pad_at = -10.0f;
+    sp.skip_to = 0.0f;
     sp.heard_watch = -1;
     sp.sounds_played = 0;
 }
@@ -311,6 +312,28 @@ static void switch_ghost(void *manager, int step)
     }
 }
 
+/* L2 / R2: to the start of this lap (of the lap before when less than LAP_BACK s into it) / of the
+ * next lap. Into time played before it is a jump (the boosts are put back, boosts.c); past it a fast
+ * forward from there (skip_to, sp_clock), so the ghosts' boosts come as in the race. */
+#define LAP_BACK 1.0f
+static void lap_skip(int step)
+{
+    if (sp.go_watch != sp.watch) return;
+    float target = -1.0f;
+    if (step < 0) {
+        target = sp.go;
+        for (int i = 0; i < sp.lap_count; i++)
+            if (sp.lap_starts[i] < sp.time - LAP_BACK) target = sp.lap_starts[i];
+    } else {
+        for (int i = sp.lap_count - 1; i >= 0; i--)
+            if (sp.lap_starts[i] > sp.time + 0.05f) target = sp.lap_starts[i];
+    }
+    if (target < 0.0f) return;
+    float saved = boosts_saved_until();
+    sp.skip_to = target > saved ? target : 0.0f;
+    sp.time = target > saved ? (saved > sp.time ? saved : sp.time) : target;
+}
+
 static void read_buttons(void *manager)
 {
     void *ctrl = controller();
@@ -325,7 +348,11 @@ static void read_buttons(void *manager)
     if (PRESSED(B_UP) && sp.speed < SPEED_COUNT - 1) sp.speed++;
     if (PRESSED(B_DOWN) && sp.speed > 0) sp.speed--;
     if (PRESSED(B_UP) || PRESSED(B_DOWN)) sp.speed_shown = 2.0f;     /* the HUD shows it for 2 s */
+    if (PRESSED(B_L2)) lap_skip(-1);
+    if (PRESSED(B_R2)) lap_skip(1);
     sp.scrub = (int)HELD(B_RIGHT) - (int)HELD(B_LEFT);
+    if (sp.scrub) sp.skip_to = 0.0f;   /* the D-pad ends a lap skip */
+    if (sp.skip_to > 0.0f) sp.scrub = 1;
 }
 
 /* The latest key time of all playing ghosts */
@@ -876,6 +903,10 @@ float sp_clock(void *manager, float game_time)
     int started = race_started();
     if (rate > 0.0f && !started) rate = 1.0f;
     float time = sp.time + dt * rate;
+    if (sp.skip_to > 0.0f && time >= sp.skip_to) {
+        time = sp.skip_to;
+        sp.skip_to = 0.0f;
+    }
     sp.end = end_time(manager);
     if (time > sp.end) time = sp.end;   /* the run stops at the end, and can be rewound */
     /* Rewinding stops at the race start (GO): before it the karts wait at the line */

@@ -240,6 +240,15 @@ void sp_add_boost(void **out, void *component, void *definition, void *a, void *
     game_add_boost_original(out, component, definition, a, b, strength);
 }
 
+/* The play time up to which every ghost's boosts are saved */
+float boosts_saved_until(void)
+{
+    int k = sp.history && sp.history_ghosts ? sp.saved_up_to[0] : -1;
+    for (int i = 1; i < sp.history_ghosts; i++)
+        if (sp.saved_up_to[i] < k) k = sp.saved_up_to[i];
+    return k > 0 ? k * HIST_STEP : 0.0f;
+}
+
 /* At every race start: the history of the run before is freed */
 void boosts_reset(void)
 {
