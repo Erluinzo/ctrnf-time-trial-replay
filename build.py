@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Builds the Time Trial Spectator Mode patch, one mod package per game edition (as the other mods), and a
+"""Builds the Time Trial Replay Mode patch, one mod package per game edition (as the other mods), and a
 switched-on test copy of each XML in the game's patches folder:
-  package/patches/TimeTrialSpectator.xml           USA CUSA13795 1.21
-  package-eu/patches/TimeTrialSpectator-EU.xml     EU CUSA14876 1.21, with mod.json and README.txt made from package/
+  package/patches/TimeTrialReplay.xml           USA CUSA13795 1.21
+  package-eu/patches/TimeTrialReplay-EU.xml     EU CUSA14876 1.21, with mod.json and README.txt made from package/
   python3 build.py
 
 Each edition's executable is only read: to check the original bytes at every write and to compute the
@@ -14,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.3.0'
+VERSION = '0.9.0'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
 CODE = 0x2319300            # unused zero padding in the code segment (0x2317810-0x233c078), after tomtotom's
@@ -66,10 +66,10 @@ EU_MOVED = {
 EU_ORIGINAL = {0xe96691: 'e85a6254ff', 0xfce836: 'e8b5e040ff', 0xfce997: 'e864d2bdff'}
 # The owner tests each build at once: a copy goes into the game's patches folder, switched on.
 EDITIONS = {
-    'CUSA13795': dict(name='USA', elf=GAME_DIR / 'out/eboot.elf', xml=HERE / 'package/patches/TimeTrialSpectator.xml',
-                      test_copy=GAME_DIR / 'patches/TimeTrialSpectator.xml', moved={}, original={}),
-    'CUSA14876': dict(name='EU', elf=GAME_DIR / 'orig/CUSA14876-eboot.elf', xml=HERE / 'package-eu/patches/TimeTrialSpectator-EU.xml',
-                      test_copy=GAME_DIR / 'patches/TimeTrialSpectator-EU.xml', moved=EU_MOVED, original=EU_ORIGINAL),
+    'CUSA13795': dict(name='USA', elf=GAME_DIR / 'out/eboot.elf', xml=HERE / 'package/patches/TimeTrialReplay.xml',
+                      test_copy=GAME_DIR / 'patches/TimeTrialReplay.xml', moved={}, original={}),
+    'CUSA14876': dict(name='EU', elf=GAME_DIR / 'orig/CUSA14876-eboot.elf', xml=HERE / 'package-eu/patches/TimeTrialReplay-EU.xml',
+                      test_copy=GAME_DIR / 'patches/TimeTrialReplay-EU.xml', moved=EU_MOVED, original=EU_ORIGINAL),
 }
 
 # (address, original bytes, new instruction, target symbol, padding): each replaces whole instructions
@@ -214,13 +214,13 @@ def build(title, e):
 
     xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <!-- Built by build.py from src/: edit those, not this file.{" EU edition." if e["name"] == "EU" else ""}
-     Time Trial Spectator Mode: L1 in the Time Trial ghost menu starts a run that only plays the chosen ghosts.
+     Time Trial Replay Mode: L1 in the Time Trial ghost menu plays the chosen ghosts as a replay.
      The camera follows one ghost; time can be paused, rewound, sped up or slowed down. The last
      lines are the new code ({len(code)} bytes). -->
 <Patch>
   <TitleID><ID>{title}</ID></TitleID>
-  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Time Trial Spectator Mode"
-            Note="Watch Time Trial ghosts: L1 in the ghost menu. L1/R1 switch ghost, Square pause, D-pad time and speed."
+  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Time Trial Replay Mode"
+            Note="Watch Time Trial ghosts as a replay: L1 in the ghost menu."
             Author="Onur" PatchVer="{VERSION}" AppVer="01.21" AppElf="eboot.bin">
     <PatchList>
 {chr(10).join(line(*l) for l in lines)}
@@ -241,7 +241,7 @@ def eu_package():
     manifest = json.loads((HERE / 'package/mod.json').read_text())
     assert manifest['version'] == VERSION, 'package/mod.json has another version'
     manifest.update(id=manifest['id'] + '-eu', name=manifest['name'] + ' (EU)',
-                    patches=['patches/TimeTrialSpectator-EU.xml'], files=[])
+                    patches=['patches/TimeTrialReplay-EU.xml'], files=[])
     (HERE / 'package-eu/mod.json').write_text(json.dumps(manifest, indent=2) + '\n')
     for name in ('README.txt', 'octr-mod.required'):
         shutil.copy(HERE / 'package' / name, HERE / 'package-eu' / name)

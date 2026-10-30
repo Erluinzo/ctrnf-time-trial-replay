@@ -26,7 +26,7 @@ void sp_menu_focus(void *behavior, void *placeable, int gained)
     void *project = placeable ? AT(placeable, 0x20, void *) : 0;
     if (!project || !g_gui_manager) return;
     if (gained) {
-        char *text = game_string(g_string_pool, "Spectate");
+        char *text = game_string(g_string_pool, "Watch Replay");
         game_legend_add(project, LEGEND_L1, &text, 1);
         game_string_release(g_string_pool, text - 0x10);
         return;

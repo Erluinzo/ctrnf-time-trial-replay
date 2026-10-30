@@ -472,7 +472,7 @@ static void rename(void *placeable, const char *name)
 }
 
 /* The character screen after L1 (spectate.c): no loading circle where the (hidden) character would
- * be, and in its place "SPECTATOR MODE" in the font of the screen's "READY!". show 0: the message is
+ * be, and in its place "REPLAY MODE" in the font of the screen's "READY!". show 0: the message is
  * taken away (the screen is used for normal races too). */
 void screen_gui(void *project, int show)
 {
@@ -485,7 +485,7 @@ void screen_gui(void *project, int show)
         void *template = find(root, "[Ready]", 0, 0);      /* "READY!": the same font, not animated */
         sp.screen_text = template ? copy(project, template, root) : 0;
         if (sp.screen_text) {
-            rename(sp.screen_text, "[SpectatorModeText]");
+            rename(sp.screen_text, "[ReplayModeText]");
             AT(sp.screen_text, 0xa0, int32_t) = AT(sp.screen_text, 0xa4, int32_t) = 0;    /* from the top left */
             float pivot[3] = {0.5f, 0.5f, 0.5f}, at[3] = {500.0f, 580.0f, 0.0f};
             game_set_pivot(sp.screen_text, pivot);
@@ -494,7 +494,7 @@ void screen_gui(void *project, int show)
     }
     if (sp.screen_text && is_child(root, sp.screen_text)) {
         game_set_hidden(sp.screen_text, !show);
-        game_set_text(sp.screen_text, "SPECTATOR MODE");
+        game_set_text(sp.screen_text, "REPLAY MODE");
     }
 }
 

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 2,
-  "id": "time-trial-spectator-eu",
-  "name": "Time Trial Spectator Mode (EU)",
-  "version": "0.3.0",
+  "id": "time-trial-replay-eu",
+  "name": "Time Trial Replay Mode (EU)",
+  "version": "0.9.0",
   "author": "Onur",
-  "description": "Watch Time Trial ghosts like a replay: L1 in the ghost menu. Follow and switch ghosts, pause, rewind, change the speed, see the ghost's inputs and hear its kart like your own.",
+  "description": "Watch Time Trial ghosts as a replay: L1 in the ghost menu.",
   "requiresCapabilities": [
     "xml-patches",
     "code-signatures"
@@ -14,13 +14,13 @@
   },
   "operations": [],
   "patches": [
-    "patches/TimeTrialSpectator-EU.xml"
+    "patches/TimeTrialReplay-EU.xml"
   ],
   "files": [
     {
       "file": "README.txt",
-      "sha256": "81bdcaa1f47f95d0500e47714c4884c4714e4a385ef0af99457b1501652d3413",
-      "bytes": 1830
+      "sha256": "22dbab7b35fbd9f77c657144e52e7f618bc84d2a63756c577de93d5f760479b4",
+      "bytes": 611
     },
     {
       "file": "octr-mod.required",
@@ -28,9 +28,9 @@
       "bytes": 19
     },
     {
-      "file": "patches/TimeTrialSpectator-EU.xml",
-      "sha256": "289fef64ebfc8aabe9ee6b9728e394e164e7c9c68b0160be8c0c31f44f4b101d",
-      "bytes": 65301
+      "file": "patches/TimeTrialReplay-EU.xml",
+      "sha256": "c08cfa2d90c47779cff024042ab1b82a8a7d9d5fd136f1e8bdee8340216b9603",
+      "bytes": 65240
     }
   ]
 }
