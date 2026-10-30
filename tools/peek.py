@@ -5,7 +5,7 @@ The layout must match `struct state` in src/spectate.c.
 """
 import struct, subprocess, sys
 
-PROBE = 0xfcc430    # a game function whose first bytes are known: finds the image base
+PROBES = (0xfcc430, 0xfcc420)   # a game function whose first bytes are known (USA, EU): finds the image base
 PROLOGUE = bytes.fromhex('554889e541574156415541545348')
 STATE = 0x2beea80
 # armed active set_up paused speed scrub time end watch ghosts | buttons | manager kart lock hud camera target
@@ -24,9 +24,11 @@ def main():
         for line in open(f'/proc/{pid}/maps'):
             start = int(line.split('-')[0], 16)
             try:
-                mem.seek(start + PROBE)
-                if mem.read(len(PROLOGUE)) == PROLOGUE:
-                    base = start
+                for probe in PROBES:
+                    mem.seek(start + probe)
+                    if mem.read(len(PROLOGUE)) == PROLOGUE:
+                        base = start
+                if base is not None:
                     break
             except OSError:
                 pass

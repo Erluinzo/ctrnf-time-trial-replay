@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
-"""Builds the Time Trial Spectator Mode patch: package/patches/TimeTrialSpectator.xml, and a switched-on test copy
-in the game's patches folder.
+"""Builds the Time Trial Spectator Mode patch, one mod package per game edition (as the other mods), and a
+switched-on test copy of each XML in the game's patches folder:
+  package/patches/TimeTrialSpectator.xml           USA CUSA13795 1.21
+  package-eu/patches/TimeTrialSpectator-EU.xml     EU CUSA14876 1.21, with mod.json and README.txt made from package/
+  python3 build.py
 
-  python3 build.py [path/to/eboot.elf]     (default: ../CTRNF/out/eboot.elf)
-
-The eboot is only read: to check the original bytes at every write and to compute the
-ExpectedSHA256 values the launcher checks before it applies the patch.
+Each edition's executable is only read: to check the original bytes at every write and to compute the
+ExpectedSHA256 values the launcher checks before it applies the patch. The EU addresses were found with
+../CTRNF-Mods/tools/eu_map.py (same functions, moved by 0 to -0x20; data at the same addresses).
 """
-import hashlib, re, subprocess, sys, tempfile
+import hashlib, json, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ELF = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / 'CTRNF/out/eboot.elf'
-XML = HERE / 'package/patches/TimeTrialSpectator.xml'
-# The owner tests each build at once: a copy goes into the game's patches folder, switched on.
-TEST_COPY = HERE.parent / 'CTRNF/patches/TimeTrialSpectator.xml'
+GAME_DIR = HERE.parent / 'CTRNF'
 VERSION = '0.3.0'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
@@ -47,6 +46,30 @@ GAME = {
     'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_racer_manager': 0x2ad4b70, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'g_minimap_player_vtable': 0x2544ea0,
     'g_kart_move_meta': 0x2ac4580, 'g_render_matrix_meta': 0x2acf5d8, 'g_kart_damage_meta': 0x2ac5018, 'game_maintained': 0xe2f050, 'g_crates': 0x2acdc40, 'g_crate_collector_meta': 0x2ab5c78, 'game_crate_enter': 0xeec470, 'g_race_clock_meta': 0x2ad3ec8, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
     'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
+}
+
+# EU addresses of the USA ones that moved (eu_map.py); all others are the same
+EU_MOVED = {
+    0xe7cb70: 0xe7cb60, 0xe7dd00: 0xe7dcf0, 0xe7dd06: 0xe7dcf6, 0xe8c710: 0xe8c700, 0xe8c810: 0xe8c800,
+    0xe8c816: 0xe8c806, 0xe916b0: 0xe916a0, 0xe916b6: 0xe916a6, 0xe96691: 0xe96681, 0xea6390: 0xea6380,
+    0xeb6a37: 0xeb6a27, 0xeec470: 0xeec460, 0xf350b8: 0xf350a8, 0xf351b0: 0xf351a0, 0xf9c610: 0xf9c600,
+    0xfcb9a0: 0xfcb990, 0xfce410: 0xfce400, 0xfce5a2: 0xfce592, 0xfce60e: 0xfce5fe, 0xfce619: 0xfce609,
+    0xfce6a0: 0xfce690, 0xfce836: 0xfce826, 0xfce997: 0xfce987, 0xfcea00: 0xfce9f0, 0xfceac0: 0xfceab0,
+    0xfceac6: 0xfceab6, 0xfd3940: 0xfd3930, 0x1023c90: 0x1023c80, 0x1024340: 0x1024330, 0x1041450: 0x1041440,
+    0x1041a10: 0x1041a00, 0x1041ca0: 0x1041c90, 0x1041ca6: 0x1041c96, 0x1041ce0: 0x1041cd0,
+    0x1041ce6: 0x1041cd6, 0x1041d90: 0x1041d80, 0x1041d96: 0x1041d86, 0x10425b0: 0x10425a0,
+    0x112d8b0: 0x112d8a0, 0x112da10: 0x112da00, 0x1255f90: 0x1255f80, 0x149d260: 0x149d250,
+    0x149fca0: 0x149fc90, 0x14bea20: 0x14bea10, 0x1518e30: 0x1518e20, 0x1574080: 0x1574070,
+    0x1be9c58: 0x1be9c38, 0x1be9c68: 0x1be9c48,
+}
+# EU original bytes where they differ: calls to the same functions from moved code
+EU_ORIGINAL = {0xe96691: 'e85a6254ff', 0xfce836: 'e8b5e040ff', 0xfce997: 'e864d2bdff'}
+# The owner tests each build at once: a copy goes into the game's patches folder, switched on.
+EDITIONS = {
+    'CUSA13795': dict(name='USA', elf=GAME_DIR / 'out/eboot.elf', xml=HERE / 'package/patches/TimeTrialSpectator.xml',
+                      test_copy=GAME_DIR / 'patches/TimeTrialSpectator.xml', moved={}, original={}),
+    'CUSA14876': dict(name='EU', elf=GAME_DIR / 'orig/CUSA14876-eboot.elf', xml=HERE / 'package-eu/patches/TimeTrialSpectator-EU.xml',
+                      test_copy=GAME_DIR / 'patches/TimeTrialSpectator-EU.xml', moved=EU_MOVED, original=EU_ORIGINAL),
 }
 
 # (address, original bytes, new instruction, target symbol, padding): each replaces whole instructions
@@ -115,7 +138,7 @@ def run(*command):
     subprocess.run([str(c) for c in command], check=True)
 
 
-def build_code(tmp):
+def build_code(tmp, game):
     objects = []
     for source in ('spectate.c', 'hud.c', 'sounds.c', 'boosts.c', 'mem.c'):
         obj = tmp / (source + '.o')
@@ -133,7 +156,7 @@ def build_code(tmp):
     script.write_text(LINKER_SCRIPT % CODE)
     linked = tmp / 'patch.elf'
     run('ld', '-T', script, '-o', linked, '-e', 'sp_clock',
-        *[f'--defsym={name}={address:#x}' for name, address in GAME.items()], *objects)
+        *[f'--defsym={name}={address:#x}' for name, address in game.items()], *objects)
     sections = subprocess.run(['readelf', '-SW', linked], capture_output=True, text=True, check=True).stdout
     # [Nr] Name Type Address Off Size ES Flg ...: only .text may take space in memory
     for name, size, flags in re.findall(r'\[\s*\d+\]\s+(\S+)\s+\S+\s+[0-9a-f]+\s+[0-9a-f]+\s+([0-9a-f]+)\s+[0-9a-f]+\s+(\S*)', sections):
@@ -148,23 +171,25 @@ def build_code(tmp):
     return binary.read_bytes(), symbols
 
 
-def main():
-    elf = ELF.read_bytes()
+def build(title, e):
+    elf = e['elf'].read_bytes()
+    game = {name: e['moved'].get(address, address) for name, address in GAME.items()}
     with tempfile.TemporaryDirectory() as tmp:
-        code, symbols = build_code(Path(tmp))
+        code, symbols = build_code(Path(tmp), game)
     if CODE + len(code) > CODE_END:
         sys.exit(f'code is {len(code)} bytes: does not fit before {CODE_END:#x}')
     if read(elf, CODE, len(code)) != bytes(len(code)):
-        sys.exit(f'{ELF}: the area at {CODE:#x} is not empty')
+        sys.exit(f'{e["elf"]}: the area at {CODE:#x} is not empty')
     data_end = 0x2a00000 + 0x1ee66d
     if STATE < data_end or STATE + 0x500 > STATE_END:
         sys.exit('state area is not in the free space after the game data')
 
     lines = []
-    for address, original, opcode, target, padding in HOOKS:
-        original = bytes.fromhex(original)
+    for usa_address, original, opcode, target, padding in HOOKS:
+        address = e['moved'].get(usa_address, usa_address)
+        original = bytes.fromhex(e['original'].get(usa_address, original))
         if read(elf, address, len(original)) != original:
-            sys.exit(f'{ELF}: the code at {address:#x} is not the expected USA 1.21 code')
+            sys.exit(f'{e["elf"]}: the code at {address:#x} is not the expected {e["name"]} 1.21 code')
         rel = symbols[target] - (address + 5)
         new = bytes.fromhex(opcode) + rel.to_bytes(4, 'little', signed=True) + b'\x90' * padding
         assert len(new) == len(original), hex(address)
@@ -188,12 +213,12 @@ def main():
                 f'{extra} ExpectedSHA256="{sha}" />')
 
     xml = f'''<?xml version="1.0" encoding="utf-8"?>
-<!-- Built by build.py from src/: edit those, not this file.
+<!-- Built by build.py from src/: edit those, not this file.{" EU edition." if e["name"] == "EU" else ""}
      Time Trial Spectator Mode: L1 in the Time Trial ghost menu starts a run that only plays the chosen ghosts.
      The camera follows one ghost; time can be paused, rewound, sped up or slowed down. The last
      lines are the new code ({len(code)} bytes). -->
 <Patch>
-  <TitleID><ID>CUSA13795</ID></TitleID>
+  <TitleID><ID>{title}</ID></TitleID>
   <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Time Trial Spectator Mode"
             Note="Watch Time Trial ghosts: L1 in the ghost menu. L1/R1 switch ghost, Square pause, D-pad time and speed."
             Author="Onur" PatchVer="{VERSION}" AppVer="01.21" AppElf="eboot.bin">
@@ -203,12 +228,29 @@ def main():
   </Metadata>
 </Patch>
 '''
-    XML.parent.mkdir(parents=True, exist_ok=True)
-    XML.write_text(xml, encoding='utf-8')
-    print(f'{XML.relative_to(HERE)}: {len(HOOKS)} hooks, code {len(code)} bytes at {CODE:#x}')
-    if TEST_COPY.parent.is_dir():
-        TEST_COPY.write_text(xml.replace('AppElf="eboot.bin">', 'AppElf="eboot.bin" isEnabled="true">'), encoding='utf-8')
-        print(f'test copy, switched on: {TEST_COPY}')
+    e['xml'].parent.mkdir(parents=True, exist_ok=True)
+    e['xml'].write_text(xml, encoding='utf-8')
+    print(f'{e["xml"].relative_to(HERE)}: {len(HOOKS)} hooks, code {len(code)} bytes at {CODE:#x}')
+    if e['test_copy'].parent.is_dir():
+        e['test_copy'].write_text(xml.replace('AppElf="eboot.bin">', 'AppElf="eboot.bin" isEnabled="true">'), encoding='utf-8')
+        print(f'test copy, switched on: {e["test_copy"]}')
+
+
+def eu_package():
+    """package-eu/ gets the USA package's README, marker file and manifest, with its own id and name"""
+    manifest = json.loads((HERE / 'package/mod.json').read_text())
+    assert manifest['version'] == VERSION, 'package/mod.json has another version'
+    manifest.update(id=manifest['id'] + '-eu', name=manifest['name'] + ' (EU)',
+                    patches=['patches/TimeTrialSpectator-EU.xml'], files=[])
+    (HERE / 'package-eu/mod.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    for name in ('README.txt', 'octr-mod.required'):
+        shutil.copy(HERE / 'package' / name, HERE / 'package-eu' / name)
+
+
+def main():
+    for title, e in EDITIONS.items():
+        build(title, e)
+    eu_package()
 
 
 if __name__ == '__main__':
