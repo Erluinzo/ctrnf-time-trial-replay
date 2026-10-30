@@ -850,27 +850,32 @@ static void respawns(void *manager, float old, float time)
 }
 
 /* Crates: ghost karts never enter a crate's trigger (0xeebfa0), so the "!" crate the ghost broke
- * (Clockwork Wumpa ~71 s) stayed and its hole never opened. When the watched ghost plays forward to a
+ * (Clockwork Wumpa ~71 s) stayed and its hole never opened. When the watched ghost goes forward past a
  * crate that can still break (+0x2c), the game's "kart entered the crate" (0xeec470) runs with the ghost
- * kart's crate collector (the player-only part, Wumpa fruit, needs a racer: ghosts have none). A rewind
- * does not bring a broken crate back. */
+ * kart's crate collector (the player-only part, Wumpa fruit, needs a racer: ghosts have none). Its path
+ * since the last frame is checked, so fast forward and lap skips break it too. A rewind does not bring a
+ * broken crate back. */
 #define CRATE_REACH 300.0f      /* units from its middle (the ghost that broke it passed at 249) */
+#define CRATE_STEP 0.02f        /* s between the path points checked */
 static void crates(void *manager, float old, float time)
 {
     void *ghosts = AT(manager, 0x40, void *);
-    void *kart = sp.watch < count(ghosts) ? ghost_kart(item(ghosts, sp.watch)) : 0;
+    void *ghost = sp.watch < count(ghosts) ? item(ghosts, sp.watch) : 0, *kart = ghost_kart(ghost);
     void *list = g_crates ? AT(g_crates, 0x10, void *) : 0;
     void *collector = kart && g_crate_collector_meta ? game_find_component(kart, g_crate_collector_meta, 0) : 0;
-    if (!collector || sp.scrub || time <= old || time - old > 0.5f) return;
-    float at[3], crate[3];
-    game_entity_position(at, kart);
-    for (int i = 0; i < count(list); i++) {
-        void *c = item(list, i);
-        if (!c || !AT(c, 0x2c, uint8_t) || !AT(c, 0x18, void *)) continue;
-        game_entity_position(crate, AT(c, 0x18, void *));
-        float d = 0.0f;
-        for (int j = 0; j < 3; j++) d += (crate[j] - at[j]) * (crate[j] - at[j]);
-        if (d < CRATE_REACH * CRATE_REACH) game_crate_enter(c, collector);
+    if (!collector || time <= old || !count(list)) return;
+    float step = (time - old) / 4000.0f > CRATE_STEP ? (time - old) / 4000.0f : CRATE_STEP;
+    for (float t = old + step; t < time + step; t += step) {
+        float at[3], crate[3];
+        if (!smooth_pose(ghost, t < time ? t : time, 0, at)) return;
+        for (int i = 0; i < count(list); i++) {
+            void *c = item(list, i);
+            if (!c || !AT(c, 0x2c, uint8_t) || !AT(c, 0x18, void *)) continue;
+            game_entity_position(crate, AT(c, 0x18, void *));
+            float d = 0.0f;
+            for (int j = 0; j < 3; j++) d += (crate[j] - at[j]) * (crate[j] - at[j]);
+            if (d < CRATE_REACH * CRATE_REACH) game_crate_enter(c, collector);
+        }
     }
 }
 
