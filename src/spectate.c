@@ -1023,7 +1023,7 @@ void sp_camera_contacts(void *camera, void **contacts, int n)
     game_camera_contacts_original(camera, contacts, n);
 }
 
-/* Called in place of a kart's collision response (0xe916b0, a callback for its body's contacts): the
+/* Called in place of a kart's collision response (0xe916b0, a callback for its body's contacts, set at 0xe92c42): the
  * ghosts had no collisions in the race, but their karts' bodies still touch the level when placed (e.g.
  * an overhead sign at 112.4 s on Electron Avenue), and a hit while boosting ended all the kart's boosts
  * and its sacred fire. In a spectator run ghost karts (until their last key: then they drive on, as

@@ -225,14 +225,6 @@ game_add_boost_original:
     push r15
     jmp game_add_boost_continue
 
-# 0xe916b0 (collision response, contacts, pairs): a kart's collision response: same, for sp_collision.
-    .globl game_collision_original
-game_collision_original:
-    push rbp
-    mov rbp, rsp
-    push r15
-    jmp game_collision_continue
-
 # 0xf351b0 (system, racer): a racer finishes the race: same, for sp_player_finished.
     .globl game_racer_finished
 game_racer_finished:

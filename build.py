@@ -14,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.9.2'
+VERSION = '0.9.3'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
 CODE = 0x2324000            # unused zero padding in the code segment (0x2317810-0x233c078), after ghost sharing
@@ -34,7 +34,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_racer_finished_continue': 0xf351b6, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_continue': 0xe916b6, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_racer_finished_continue': 0xf351b6, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_original': 0xe916b0, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -52,7 +52,7 @@ GAME = {
 EU_MOVED = {
     0x125c660: 0x125c650, 0x14fad90: 0x14fad80,
     0xe7cb70: 0xe7cb60, 0xe7dd00: 0xe7dcf0, 0xe7dd06: 0xe7dcf6, 0xe8c710: 0xe8c700, 0xe8c810: 0xe8c800,
-    0xe8c816: 0xe8c806, 0xe916b0: 0xe916a0, 0xe916b6: 0xe916a6, 0xe96691: 0xe96681, 0xea6390: 0xea6380,
+    0xe8c816: 0xe8c806, 0xe916b0: 0xe916a0, 0xe92c42: 0xe92c32, 0xe96691: 0xe96681, 0xea6390: 0xea6380,
     0xeb6a37: 0xeb6a27, 0xeec470: 0xeec460, 0xf350b8: 0xf350a8, 0xf351b0: 0xf351a0, 0xf351b6: 0xf351a6, 0xf9c610: 0xf9c600,
     0xfcb9a0: 0xfcb990, 0xfce410: 0xfce400, 0xfce5a2: 0xfce592, 0xfce60e: 0xfce5fe, 0xfce619: 0xfce609,
     0xfce6a0: 0xfce690, 0xfce836: 0xfce826, 0xfce997: 0xfce987, 0xfcea00: 0xfce9f0, 0xfceac0: 0xfceab0,
@@ -88,7 +88,9 @@ HOOKS = [
     (0xe96691, 'e84a6254ff', 'e8', 'sp_body_sync', 0),                     # a kart gets its physics body's position
     (0xc04ed0, '554889e54157', 'e9', 'sp_rumble', 1),                      # a controller rumble starts
     (0xe7dd00, '554889e54157', 'e9', 'sp_respawn', 1),                     # a kart is respawned
-    (0xe916b0, '554889e54157', 'e9', 'sp_collision', 1),                   # a kart's collision response
+    # a kart's collision response (0xe916b0) is only reached through the callback address set here; the port's
+    # Itemless code (src/runtime_itemless.c) hooks that function's first bytes and stops the game if they changed
+    (0xe92c42, '488d1567eaffff', '488d15', 'sp_collision', 0),
     (0xe56595, 'e8860b0000', 'e8', 'sp_pad_boost', 0),                     # a kart gets a boost pad's boost
     (0xc8b160, '554889e54157', 'e9', 'sp_camera_contacts', 1),             # the race camera's collisions
     (0xeb6a37, 'e83461fcff', 'e8', 'sp_turbo_start', 0),                   # GO: a kart's start boost
@@ -191,7 +193,7 @@ def build(title, e):
         original = bytes.fromhex(e['original'].get(usa_address, original))
         if read(elf, address, len(original)) != original:
             sys.exit(f'{e["elf"]}: the code at {address:#x} is not the expected {e["name"]} 1.21 code')
-        rel = symbols[target] - (address + 5)
+        rel = symbols[target] - (address + len(bytes.fromhex(opcode)) + 4)
         new = bytes.fromhex(opcode) + rel.to_bytes(4, 'little', signed=True) + b'\x90' * padding
         assert len(new) == len(original), hex(address)
         # Signature: the replaced bytes, 8 bytes before them and at least 8 after, unique in the
