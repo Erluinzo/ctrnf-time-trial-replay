@@ -19,7 +19,7 @@
   "files": [
     {
       "file": "README.txt",
-      "sha256": "dc507d57ea7f90d2f06e4ce55a2f3047f11f20c47fa4a04ae07741b513462b09",
+      "sha256": "fa60d64344cd4c042040482dd1023c67edf71a8298b4288c899dba67d8f2114b",
       "bytes": 666
     },
     {
@@ -29,8 +29,8 @@
     },
     {
       "file": "patches/TimeTrialReplay.xml",
-      "sha256": "17000dfc1b11fac7c6447de6163c4f46abddb4d747f0dd9db48093f8e4cf5f12",
-      "bytes": 72757
+      "sha256": "1156e63532eb7145eeb057e032d7dfc612b81c811ff3bc08a770d739f880fc00",
+      "bytes": 72750
     }
   ]
 }

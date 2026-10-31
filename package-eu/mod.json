@@ -16,5 +16,21 @@
   "patches": [
     "patches/TimeTrialReplay-EU.xml"
   ],
-  "files": []
+  "files": [
+    {
+      "file": "README.txt",
+      "sha256": "fa60d64344cd4c042040482dd1023c67edf71a8298b4288c899dba67d8f2114b",
+      "bytes": 666
+    },
+    {
+      "file": "octr-mod.required",
+      "sha256": "2d5586c93e82ea2dbaaf8ddd5fc63068a0399479ef9824fb49c477b62a4ccc26",
+      "bytes": 19
+    },
+    {
+      "file": "patches/TimeTrialReplay-EU.xml",
+      "sha256": "0391851f5e62dc41e150fcb80c2a6d0b08a299385a934036e20e3ff943057de1",
+      "bytes": 72762
+    }
+  ]
 }
