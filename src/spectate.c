@@ -1028,7 +1028,8 @@ void sp_camera_contacts(void *camera, void **contacts, int n)
  * an overhead sign at 112.4 s on Electron Avenue), and a hit while boosting ended all the kart's boosts
  * and its sacred fire. In a spectator run ghost karts (until their last key: then they drive on, as
  * after a race) and the hidden player kart get no response. */
-long sp_collision(void *response, void *contacts, void *pairs)
+/* Aligned: the game keeps it as a C++ member function pointer, where an odd address means a virtual one. */
+__attribute__((aligned(16))) long sp_collision(void *response, void *contacts, void *pairs)
 {
     void *entity = sp.active && response ? AT(response, 0x18, void *) : 0;
     void *list = entity && sp.manager ? AT(sp.manager, 0x40, void *) : 0;

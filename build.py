@@ -194,6 +194,8 @@ def build(title, e):
         if read(elf, address, len(original)) != original:
             sys.exit(f'{e["elf"]}: the code at {address:#x} is not the expected {e["name"]} 1.21 code')
         rel = symbols[target] - (address + len(bytes.fromhex(opcode)) + 4)
+        if opcode == '488d15' and symbols[target] % 2:
+            sys.exit(f'{target} must be at an even address: the game keeps it as a member function pointer')
         new = bytes.fromhex(opcode) + rel.to_bytes(4, 'little', signed=True) + b'\x90' * padding
         assert len(new) == len(original), hex(address)
         # Signature: the replaced bytes, 8 bytes before them and at least 8 after, unique in the
