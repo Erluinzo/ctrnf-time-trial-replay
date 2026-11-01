@@ -10,7 +10,7 @@
     "code-signatures"
   ],
   "compatibility": {
-    "online": "offline-only"
+    "online": "allowed"
   },
   "operations": [],
   "patches": [
@@ -19,8 +19,8 @@
   "files": [
     {
       "file": "README.txt",
-      "sha256": "fa60d64344cd4c042040482dd1023c67edf71a8298b4288c899dba67d8f2114b",
-      "bytes": 666
+      "sha256": "2572f5a1f717d10f3eb7826f5fe903838f7308a3bb92a6277eb9ec1ece66e41b",
+      "bytes": 652
     },
     {
       "file": "octr-mod.required",

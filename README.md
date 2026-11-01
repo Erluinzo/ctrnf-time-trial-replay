@@ -16,7 +16,7 @@ Pause menu: switch between Time Trial and Replay Mode.
 
 With [Ghost Sharing](https://github.com/Erluinzo/ctrnf-ghost-share), watch your friends' ghosts too.
 
-Offline only. Nothing is saved. Works with the [Reserves Meter](https://github.com/Erluinzo/ctrnf-reserves-meter).
+Nothing is saved. Works with the [Reserves Meter](https://github.com/Erluinzo/ctrnf-reserves-meter).
 
 ## Install
 Download the ZIP for your game from [Releases](https://github.com/Erluinzo/ctrnf-time-trial-replay/releases):
