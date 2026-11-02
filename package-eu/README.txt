@@ -1,4 +1,4 @@
-Ghost Viewer 0.9.4 - by Onur
+Ghost Viewer 0.9.5 - by Onur
 
 Watch Time Trial ghosts as a replay.
 

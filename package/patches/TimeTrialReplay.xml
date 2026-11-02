@@ -7,7 +7,7 @@
   <TitleID><ID>CUSA13795</ID></TitleID>
   <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Ghost Viewer"
             Note="Watch Time Trial ghosts as a replay: L1 in the ghost menu."
-            Author="Onur" PatchVer="0.9.4" AppVer="01.21" AppElf="eboot.bin">
+            Author="Onur" PatchVer="0.9.5" AppVer="01.21" AppElf="eboot.bin">
     <PatchList>
       <Line Type="bytes" Address="0x00db38ae" Value="e9a981970190909090" Signature="48 00 0f 85 26 01 00 00 48 39 d8 0f 84 9c 01 00 00 48 8d 05 fa e5 06 02 4c" SignatureOffset="0x8" ExpectedSHA256="1dc715973767f5808980d43b92bb343b896a746e4e5ad08da7776e6812181b95" />
       <Line Type="bytes" Address="0x00db38da" Value="e9d082970190909090" Signature="48 00 0f 85 1a 01 00 00 48 39 d8 0f 84 4d 02 00 00 48 8d 3d de e5 06 02 48" SignatureOffset="0x8" ExpectedSHA256="0ccab011b3588ecc71bd1cf702680f7044c6cd889e8eeb05fcac316b2184c80c" />

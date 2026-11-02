@@ -14,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.9.4'
+VERSION = '0.9.5'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
 CODE = 0x2324000            # unused zero padding in the code segment (0x2317810-0x233c078), after ghost sharing
@@ -252,7 +252,7 @@ def eu_package():
     manifest.update(id=manifest['id'] + '-eu', name=manifest['name'] + ' (EU)',
                     patches=['patches/TimeTrialReplay-EU.xml'], files=[])
     (HERE / 'package-eu/mod.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    for name in ('README.txt', 'octr-mod.required'):
+    for name in ('README.txt', 'octr-mod.required', 'gamebananapageurl.txt'):
         shutil.copy(HERE / 'package' / name, HERE / 'package-eu' / name)
 
 
