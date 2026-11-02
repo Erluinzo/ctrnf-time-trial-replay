@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the Time Trial Replay Mode patch, one mod package per game edition (as the other mods), and a
+"""Builds the Ghost Viewer patch, one mod package per game edition (as the other mods), and a
 switched-on test copy of each XML in the game's patches folder:
   package/patches/TimeTrialReplay.xml           USA CUSA13795 1.21
   package-eu/patches/TimeTrialReplay-EU.xml     EU CUSA14876 1.21, with mod.json and README.txt made from package/
@@ -14,11 +14,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.9.3'
+VERSION = '0.9.4'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
 CODE = 0x2324000            # unused zero padding in the code segment (0x2317810-0x233c078), after ghost sharing
-CODE_END = 0x2338000        # (to 0x2323792), before Time Trial Beat-All (0x2338000) and the reserves meter (0x2339000)
+CODE_END = 0x232dc00        # (to 0x2323792); 0x232dc00-0x2330000 and 0x2330000-0x2338000 are Replay Mode's
 STATE = 0x2beea80           # after the game's data (ends 0x2bee66d) and ghost sharing's state (0x2bee680, 0x350 used),
 STATE_END = 0x2beef80       # before the reserves meter's state (0x2beef80)
 MAX_WRITE = 4096
@@ -45,7 +45,9 @@ GAME = {
     'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
     'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_racer_manager': 0x2ad4b70, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'g_minimap_player_vtable': 0x2544ea0,
     'g_kart_move_meta': 0x2ac4580, 'g_render_matrix_meta': 0x2acf5d8, 'g_kart_damage_meta': 0x2ac5018, 'game_maintained': 0xe2f050, 'g_crates': 0x2acdc40, 'g_crate_collector_meta': 0x2ab5c78, 'game_crate_enter': 0xeec470, 'g_race_clock_meta': 0x2ad3ec8, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
-    'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
+    'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78, 'g_race_replay': 0x2beea78, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
+    'sce_open': 0x1beab78, 'sce_pread': 0x1bea7b8, 'sce_close': 0x1beaa38, 'sce_getdents': 0x1beaa18, 'sce_initial_user': 0x1be8df8,
+    'sce_save_mount2': 0x1beaa68, 'sce_save_umount': 0x1bea988, 'game_current_zone': 0x102e040, 'g_zone_system': 0x2ae3c18,
 }
 
 # EU addresses of the USA ones that moved (eu_map.py); all others are the same
@@ -62,6 +64,8 @@ EU_MOVED = {
     0x112d8b0: 0x112d8a0, 0x112da10: 0x112da00, 0x1255f90: 0x1255f80, 0x149d260: 0x149d250,
     0x149fca0: 0x149fc90, 0x14bea20: 0x14bea10, 0x1518e30: 0x1518e20, 0x1574080: 0x1574070,
     0x1be9c58: 0x1be9c38, 0x1be9c68: 0x1be9c48,
+    0x1beab78: 0x1beab58, 0x1bea7b8: 0x1bea798, 0x1beaa38: 0x1beaa18, 0x1beaa18: 0x1bea9f8, 0x1be8df8: 0x1be8dd8,
+    0x1beaa68: 0x1beaa48, 0x1bea988: 0x1bea968, 0x102e040: 0x102e030,
 }
 # EU original bytes where they differ: calls to the same functions from moved code
 EU_ORIGINAL = {0xe96691: 'e85a6254ff', 0xfce836: 'e8b5e040ff', 0xfce997: 'e864d2bdff'}
@@ -143,7 +147,7 @@ def run(*command):
 
 def build_code(tmp, game):
     objects = []
-    for source in ('spectate.c', 'hud.c', 'sounds.c', 'boosts.c', 'mem.c'):
+    for source in ('spectate.c', 'hud.c', 'sounds.c', 'boosts.c', 'race.c', 'mem.c'):
         obj = tmp / (source + '.o')
         run('gcc', *CFLAGS, '-o', obj, HERE / 'src' / source)
         objects.append(obj)
@@ -219,12 +223,12 @@ def build(title, e):
 
     xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <!-- Built by build.py from src/: edit those, not this file.{" EU edition." if e["name"] == "EU" else ""}
-     Time Trial Replay Mode: L1 in the Time Trial ghost menu plays the chosen ghosts as a replay.
+     Ghost Viewer: L1 in the Time Trial ghost menu plays the chosen ghosts as a replay.
      The camera follows one ghost; time can be paused, rewound, sped up or slowed down. The last
      lines are the new code ({len(code)} bytes). -->
 <Patch>
   <TitleID><ID>{title}</ID></TitleID>
-  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Time Trial Replay Mode"
+  <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Ghost Viewer"
             Note="Watch Time Trial ghosts as a replay: L1 in the ghost menu."
             Author="Onur" PatchVer="{VERSION}" AppVer="01.21" AppElf="eboot.bin">
     <PatchList>

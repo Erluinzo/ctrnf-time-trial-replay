@@ -173,6 +173,7 @@ struct state {
     int hold_set[HISTORY_GHOSTS];       /* hold[] is set */
     float crash_at[HISTORY_GHOSTS];     /* ghost time of a ghost's last crash (boosts.c) */
     float fire_speed[HISTORY_GHOSTS];   /* race speed with the fire race_fire keeps (boosts.c), 0 = none */
+    void *races;            /* race.c: the playing ghosts' full race recordings */
 };
 _Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212
@@ -245,3 +246,7 @@ void sp_add_boost(void **out, void *component, void *definition, void *a, void *
 void sounds_frame(void *manager, float from, float to);
 /* spectate.c */
 void sp_countdown_go(void);
+/* race.c */
+void recordings_start(void);
+void recordings_frame(void *manager);
+int recorded_pose(void *ghost, float t, float *position, float *velocity, float *angles);

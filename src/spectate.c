@@ -26,7 +26,7 @@ void sp_menu_focus(void *behavior, void *placeable, int gained)
     void *project = placeable ? AT(placeable, 0x20, void *) : 0;
     if (!project || !g_gui_manager) return;
     if (gained) {
-        char *text = game_string(g_string_pool, "Watch Replay");
+        char *text = game_string(g_string_pool, "Watch Ghosts");
         game_legend_add(project, LEGEND_L1, &text, 1);
         game_string_release(g_string_pool, text - 0x10);
         return;
@@ -87,6 +87,7 @@ void sp_race_start(void *manager, void *racer)
 {
     game_start_recording(manager, racer);
     boosts_reset();
+    recordings_start();
     sp.switch_nav = 0;
     sp.switch_step = 0;
     sp.switch_paused = 0;
@@ -369,18 +370,18 @@ static void switch_ghost(void *manager, int step)
     }
 }
 
-/* L1 / R1: to the start of this lap (of the lap before within LAP_BACK real s of playing) / of the
- * next lap. Into time played before it is a jump (the boosts are put back, boosts.c); past it a fast
- * forward from there (skip_to, sp_clock), so the ghosts' boosts come as in the race. */
-#define LAP_BACK 1.0f     /* real s: at x4 that is 4 s of the race */
+/* L1 / R1: to the start of the lap before this one / of the next lap (owner: L1 in lap 2 should reach lap 1;
+ * it went to the start of the lap it was in). Into time played before it is a jump (the boosts are put back,
+ * boosts.c); past it a fast forward from there (skip_to, sp_clock), so the ghosts' boosts come as in the race. */
 static void lap_skip(int step)
 {
     if (sp.go_watch != sp.watch) return;
     float target = -1.0f;
     if (step < 0) {
+        float current = sp.go;
         target = sp.go;
         for (int i = 0; i < sp.lap_count; i++)
-            if (sp.lap_starts[i] < sp.time - LAP_BACK * (SPEEDS[sp.speed] > 1.0f ? SPEEDS[sp.speed] : 1.0f)) target = sp.lap_starts[i];
+            if (sp.lap_starts[i] <= sp.time + 0.05f) target = current, current = sp.lap_starts[i];
     } else {
         for (int i = sp.lap_count - 1; i >= 0; i--)
             if (sp.lap_starts[i] > sp.time + 0.05f) target = sp.lap_starts[i];
@@ -460,10 +461,11 @@ static float ghost_end(void *ghost)
 
 static void ghost_update(void (*update)(void *, void *), void *manager, void *ghost)
 {
-    float time = AT(manager, 0x18, float);
+    float time = AT(manager, 0x18, float), unused[3];
     int on = sp.active && manager == sp.manager;
     if (on && time > ghost_end(ghost)) AT(manager, 0x18, float) = ghost_end(ghost);
-    sp.placing = on ? ghost : 0;
+    /* a ghost with its full race recording is placed from it (race.c), also in a normal Time Trial */
+    sp.placing = on || recorded_pose(ghost, AT(manager, 0x18, float), unused, unused, unused) ? ghost : 0;
     sp.placing_time = time;
     update(manager, ghost);
     sp.placing = 0;
@@ -691,18 +693,20 @@ int sp_watched_falling(void)
  * 0xfce997, in 0xfce6a0) */
 void sp_place_position(void *entity, const float *position)
 {
-    float smooth[3], ahead[3];
-    if (!sp.placing || !smooth_pose(sp.placing, sp.placing_time, 0, smooth)) {
+    float smooth[3], ahead[3], v[3], angles[3];
+    int exact = sp.placing && recorded_pose(sp.placing, sp.placing_time, smooth, v, angles);
+    if (!exact && (!sp.active || !sp.placing || !smooth_pose(sp.placing, sp.placing_time, 0, smooth))) {
         game_set_entity_position(entity, position);
         return;
     }
-    void *list = AT(sp.manager, 0x40, void *);
+    void *list = sp.active ? AT(sp.manager, 0x40, void *) : 0;
     int watched = sp.watch < count(list) && item(list, sp.watch) == sp.placing;
     /* Its speed (+0x60) along the same path: the game's own speed value jumps at the keys. The speed
      * always points forward, as the camera looks along it (backwards while rewinding, it swung to the
-     * front of the kart). */
-    float v[3];
-    if (falling(sp.placing, sp.placing_time, smooth, v)) {
+     * front of the kart). A recording has its real speed and its real falls. */
+    if (exact) {
+        for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = v[i];
+    } else if (falling(sp.placing, sp.placing_time, smooth, v)) {
         for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = v[i];
     } else if (smooth_pose(sp.placing, sp.placing_time + 0.01f, 0, ahead)) {
         for (int i = 0; i < 3; i++) AT(entity, 0x60 + 4 * i, float) = (ahead[i] - smooth[i]) / 0.01f;
@@ -716,8 +720,9 @@ void sp_place_position(void *entity, const float *position)
 
 void sp_place_angles(void *entity, const float *angles, int zero)
 {
-    float smooth[3];
-    if (sp.placing && smooth_pose(sp.placing, sp.placing_time, 1, smooth)) angles = smooth;
+    float smooth[3], unused[3];
+    if (sp.placing && recorded_pose(sp.placing, sp.placing_time, unused, unused, smooth)) angles = smooth;
+    else if (sp.active && sp.placing && smooth_pose(sp.placing, sp.placing_time, 1, smooth)) angles = smooth;
     game_set_entity_angles(entity, angles, zero);
 }
 
@@ -1065,6 +1070,7 @@ void sp_player_finished(void *system, void *racer)
 float sp_clock(void *manager, float game_time)
 {
     float old = AT(manager, 0x18, float);
+    recordings_frame(manager);
     if (!sp.active || manager != sp.manager) return old + game_time;
     sp.frames++;
     if (!sp.set_up) set_up(manager);

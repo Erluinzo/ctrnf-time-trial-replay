@@ -20,6 +20,7 @@ extern void *game_find_driver(void *drivers, const char *name) GAME;   /* CRacer
 extern void game_hud_set_lap(void *hud, int lap) GAME;
 extern void game_hud_bar(void *hud, int style) GAME;
 extern void *g_race_clock_meta GAME;    /* CRaceClockComponent (world entity): +0x28 _raceTimer */
+extern uint32_t *g_race_replay GAME;    /* the Replay Mode mod's state, or 0 */
 static float ghost_end_time(void *ghost);
 void sp_boost_update(void *hud, int flag);
 static void *world(void);
@@ -90,7 +91,7 @@ static const float HELP_BOX_FIX[5] = {0, 0, -37, 0, 0};
 static const float HELP_X[5] = {60, 55, 55, 60, 60};
 #define HELP_Y 522.0f
 #define HELP_STEP 34.0f
-/* "REPLAY MODE" above the start lights: its middle, HUD space (measured in game; the timer's text sits
+/* "GHOST VIEWER" above the start lights: its middle, HUD space (measured in game; the timer's text sits
  * at the left of its box, so a bit to the right) */
 #define MODE_X 973.0f
 #define MODE_Y 146.0f
@@ -260,7 +261,7 @@ void pause_row_look(void)
         place_row(child(rows, 0), 24.0f, 210.0f);
     }
     void *text = AT(sp.switch_nav, NAV_TEXT, void *);
-    const char *wanted = sp.active ? "SWITCH TO TIME TRIAL" : "SWITCH TO REPLAY MODE";
+    const char *wanted = sp.active ? "SWITCH TO TIME TRIAL" : "SWITCH TO GHOST VIEWER";
     if (text && !same_text(AT(text, 0x30, const char *), wanted)) game_set_text(text, wanted);
     void *icon = sp.switch_icon;
     for (int i = 3; icon && i < 5; i++) {
@@ -313,7 +314,9 @@ void pause_row(void *project)
     int post_race = !rows;
     if (post_race) rows = top ? post_race_rows(top, 0) : 0;
     if (!rows || child_count(rows) < 4) return;
-    int show = g_game && AT(g_game, 0xd4c, int32_t) == 2 && g_ghost_manager && count(AT(g_ghost_manager, 0x40, void *));
+    /* not in a Replay Mode mod's replay (its state's first word has bit 31 set then; 0 without that mod) */
+    int race_replay = g_race_replay && (*g_race_replay & 0x80000000u);
+    int show = g_game && AT(g_game, 0xd4c, int32_t) == 2 && g_ghost_manager && count(AT(g_ghost_manager, 0x40, void *)) && !race_replay;
     if (!show) return;
     /* the row that restarts the race, and the one that comes under the new row */
     void *restart = child(rows, post_race ? 3 : 1), *hints = child(rows, post_race ? 2 : 3);
@@ -410,7 +413,7 @@ static void build(void *project, void *root)
         float pivot[3] = {0.5f, 0.5f, 0.5f}, scale[3] = {MODE_SCALE, MODE_SCALE, 1.0f};
         game_set_pivot(sp.mode_text, pivot);
         game_set_scale(sp.mode_text, scale);
-        game_set_text(sp.mode_text, "REPLAY MODE");
+        game_set_text(sp.mode_text, "GHOST VIEWER");
     }
     void *label = find(root, LABEL_TEMPLATE, 0, 0), *arrow = find(root, ARROW_TEMPLATE, 1, 0);
     for (int i = 0; i < PAD_COUNT; i++) {
@@ -689,7 +692,7 @@ static void rename(void *placeable, const char *name)
 }
 
 /* The character screen after L1 (spectate.c): no loading circle where the (hidden) character would
- * be, and in its place "REPLAY MODE" in the font of the screen's "READY!". show 0: the message is
+ * be, and in its place "GHOST VIEWER" in the font of the screen's "READY!". show 0: the message is
  * taken away (the screen is used for normal races too). */
 void screen_gui(void *project, int show)
 {
@@ -711,7 +714,7 @@ void screen_gui(void *project, int show)
     }
     if (sp.screen_text && is_child(root, sp.screen_text)) {
         game_set_hidden(sp.screen_text, !show);
-        game_set_text(sp.screen_text, "REPLAY MODE");
+        game_set_text(sp.screen_text, "GHOST VIEWER");
     }
 }
 
