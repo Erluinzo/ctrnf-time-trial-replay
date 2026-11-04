@@ -2,7 +2,7 @@
 
 ELF addresses of `CTRNF/out/eboot.elf` (patch XML = ELF + 0x400000). Read from code only; the game was not run.
 **V** = verified in the disassembly. **I** = inferred (read from how the code is used, not proven, not tested).
-Older notes: `~/Desktop/CTRNF-GhostShare/notes/ghost-code.md` (classes, spawn), `ghost-menu*.md`; `~/Desktop/CTRNF-Mods/notes/time-trial.md`.
+Older notes: `~/Desktop/CTRNF-GhostShare/notes/ghost-code.md` (classes, spawn), `ghost-menu*.md`; `~/Desktop/CTRNF-Tools/notes/time-trial.md`.
 
 ## 1. Ghost playback clock
 

@@ -7,7 +7,7 @@ switched-on test copy of each XML in the game's patches folder:
 
 Each edition's executable is only read: to check the original bytes at every write and to compute the
 ExpectedSHA256 values the launcher checks before it applies the patch. The EU addresses were found with
-../CTRNF-Mods/tools/eu_map.py (same functions, moved by 0 to -0x20; data at the same addresses).
+../CTRNF-Tools/tools/eu_map.py (same functions, moved by 0 to -0x20; data at the same addresses).
 """
 import hashlib, json, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
