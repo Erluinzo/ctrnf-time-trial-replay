@@ -1,4 +1,4 @@
-Ghost Viewer 0.9.5 - by Onur
+Ghost Viewer 0.9.6 - by Onur
 
 Watch Time Trial ghosts as a replay.
 
@@ -11,8 +11,12 @@ In the Time Trial ghost menu, pick ghosts, then press L1 (Watch Ghosts).
 
 Pause menu: switch between Time Trial and Ghost Viewer.
 With Ghost Sharing, watch your friends' ghosts too.
-With Replay Mode, a ghost with its full race (.crr) plays exactly as driven,
-also in normal Time Trials (for a shared ghost: put its .crr in RaceReplay).
+A ghost with its full race (.crr, kept by the game's replays for every
+personal best) plays exactly as driven, also in normal Time Trials (for a
+shared ghost: put its .crr in RaceReplay).
+
+0.9.6: works online with OCTR v0.8.3+ (0.9.5 stops the game from starting
+online there).
 
 Nothing is saved.
 Game: CTR Nitro-Fueled 1.21 on the OCTR launcher. This ZIP is for USA

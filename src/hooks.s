@@ -225,10 +225,24 @@ game_add_boost_original:
     push r15
     jmp game_add_boost_continue
 
-# 0xf351b0 (system, racer): a racer finishes the race: same, for sp_player_finished.
-    .globl game_racer_finished
-game_racer_finished:
-    push rbp
-    mov rbp, rsp
-    push r15
+# 0xf351be, inside "a racer finishes the race" (0xf351b0: system, racer), after its pushes: the port checks
+# that function's first 14 bytes when it starts online (runtime_online_mode.c), so the hook comes after them.
+# Here: rdi system, rsi racer, rsp 16-byte aligned. In a spectator run the function returns at once.
+    .globl sp_finish_gate
+sp_finish_gate:
+    push rdi
+    push rsi
+    call sp_finish_blocked
+    pop rsi
+    pop rdi
+    test eax, eax
+    jnz 1f
+    mov r14, rdi
+    call game_finish_call
     jmp game_racer_finished_continue
+1:  pop rbx
+    pop r12
+    pop r14
+    pop r15
+    pop rbp
+    ret

@@ -34,7 +34,6 @@ extern void game_send_message(void *message, void *target, void *sender) GAME;
 extern void game_set_entity_hidden(void *entity, int hidden) GAME;   /* drawing only */
 extern void *game_get_driver(void *kart) GAME;
 extern void game_hud_set_lap(void *hud, int lap) GAME;  /* lap display; the final lap effect once (+0x88) */
-extern void game_racer_finished(void *system, void *racer) GAME;
 extern void game_kart_immobile(void *kart, int flag) GAME;  /* setImmobileBehavior_VSC */
 extern void *game_rumble_original(void *a, void *b, int c, void *d, void *e, void *f) GAME;    /* hooks.s */
 extern void game_respawn_original(void *component, int kind, void *at) GAME;  /* hooks.s */

@@ -14,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.9.5'
+VERSION = '0.9.6'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
 CODE = 0x2324000            # unused zero padding in the code segment (0x2317810-0x233c078), after ghost sharing
@@ -34,7 +34,7 @@ GAME = {
     'game_set_scale': 0x269120, 'game_set_rotation': 0x2690b0, 'game_set_color': 0x269460, 'game_set_pivot': 0x269190, 'game_set_opacity': 0x2694a0, 'game_set_hidden': 0x2694d0,
     'game_play_sound': 0x1024340, 'game_get_driver': 0xfd3940, 'game_sound_system': 0x255bd0,
     'game_play_at': 0x1023c90, 'game_ghost_move': 0xfce6a0, 'game_ghost_inputs': 0xfcea00,
-    'game_racer_finished_continue': 0xf351b6, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_original': 0xe916b0, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
+    'game_racer_finished_continue': 0xf351c6, 'game_finish_call': 0x94efa0, 'game_set_entity_position': 0x3dc8e0, 'game_kart_immobile': 0x10425b0, 'game_rumble_continue': 0xc04ed6, 'game_respawn_continue': 0xe7dd06, 'game_turbo_start': 0xe7cb70, 'game_boost_update_continue': 0xe437b6, 'game_hud_boost_stop': 0xe2d7a0, 'game_speed_continue': 0x1041ce6, 'game_speed_ratio_continue': 0x1041ca6, 'game_kart_settings': 0x9b9ec0, 'game_collision_original': 0xe916b0, 'game_camera_contacts_continue': 0xc8b166, 'game_slide_level_continue': 0xe8c816, 'game_add_boost_continue': 0xe2dd16, 'game_entity_position': 0x3dc720, 'game_entity_angles': 0x3dcfb0, 'game_spline_nearest': 0xe49470, 'game_spline_direction': 0xe490c0, 'game_cos': 0x1be9c58, 'game_sin': 0x1be9c68, 'game_respawn_kart': 0x1041a10, 'game_kart_damage': 0x1041450, 'game_drift_ratio': 0xe8c710, 'game_effect_version': 0xe284d0, 'game_entity_player': 0xcb8b30, 'game_pad_boost': 0xe57120, 'game_hud_set_lap': 0xe63f20, 'game_hud_bar_continue': 0xe32056,
     'game_air_continue': 0x1041d96, 'game_set_entity_angles': 0xbabbf0,
     # places in the ghost menu entry's event handler 0x9b3830 that the hooks jump back to
     'game_menu_after_button': 0x9b38b7, 'game_menu_button': 0x9b3a53, 'game_menu_exit': 0x9b3a34,
@@ -55,7 +55,7 @@ EU_MOVED = {
     0x125c660: 0x125c650, 0x14fad90: 0x14fad80,
     0xe7cb70: 0xe7cb60, 0xe7dd00: 0xe7dcf0, 0xe7dd06: 0xe7dcf6, 0xe8c710: 0xe8c700, 0xe8c810: 0xe8c800,
     0xe8c816: 0xe8c806, 0xe916b0: 0xe916a0, 0xe92c42: 0xe92c32, 0xe96691: 0xe96681, 0xea6390: 0xea6380,
-    0xeb6a37: 0xeb6a27, 0xeec470: 0xeec460, 0xf350b8: 0xf350a8, 0xf351b0: 0xf351a0, 0xf351b6: 0xf351a6, 0xf9c610: 0xf9c600,
+    0xeb6a37: 0xeb6a27, 0xeec470: 0xeec460, 0xf350b8: 0xf350a8, 0xf351be: 0xf351ae, 0xf351c6: 0xf351b6, 0xf9c610: 0xf9c600,
     0xfcb9a0: 0xfcb990, 0xfce410: 0xfce400, 0xfce5a2: 0xfce592, 0xfce60e: 0xfce5fe, 0xfce619: 0xfce609,
     0xfce6a0: 0xfce690, 0xfce836: 0xfce826, 0xfce997: 0xfce987, 0xfcea00: 0xfce9f0, 0xfceac0: 0xfceab0,
     0xfceac6: 0xfceab6, 0xfd3940: 0xfd3930, 0x1023c90: 0x1023c80, 0x1024340: 0x1024330, 0x1041450: 0x1041440,
@@ -68,7 +68,7 @@ EU_MOVED = {
     0x1beaa68: 0x1beaa48, 0x1bea988: 0x1bea968, 0x102e040: 0x102e030,
 }
 # EU original bytes where they differ: calls to the same functions from moved code
-EU_ORIGINAL = {0xe96691: 'e85a6254ff', 0xfce836: 'e8b5e040ff', 0xfce997: 'e864d2bdff'}
+EU_ORIGINAL = {0xf351be: '4989fee8ea9da1ff', 0xe96691: 'e85a6254ff', 0xfce836: 'e8b5e040ff', 0xfce997: 'e864d2bdff'}
 # The owner tests each build at once: a copy goes into the game's patches folder, switched on.
 EDITIONS = {
     'CUSA13795': dict(name='USA', elf=GAME_DIR / 'out/eboot.elf', xml=HERE / 'package/patches/TimeTrialReplay.xml',
@@ -104,7 +104,8 @@ HOOKS = [
     (0xe2fe7b, 'e810c15aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost fails
     (0xe32bad, 'e8de935aff', 'e8', 'sp_kart_hud', 0),                      # a slide boost (its rating)
     (0xe61045, 'e9d62e0000', 'e9', 'sp_player_lap', 0),                    # the player's lap to the HUD
-    (0xf351b0, '554889e54157', 'e9', 'sp_player_finished', 1),             # a racer finishes the race (every way there)
+    # a racer finishes the race (0xf351b0, every way there): after its first 14 bytes, which the port checks online
+    (0xf351be, '4989fee8da9da1ff', 'e9', 'sp_finish_gate', 3),
     (0xe32050, '554889e54157', 'e9', 'sp_hud_bar', 1),                     # the HUD's boost bar gets its kart
     (0x1041ca0, '554889e55350', 'e9', 'sp_speed_ratio', 1),                # the HUD reads a kart's speed ratio
     (0x1041ce0, '554889e54157', 'e9', 'sp_forward_speed', 1),              # and its speed (speedometer)

@@ -871,7 +871,7 @@ static void hide_player(void)
  * CARRY_UNDER units under it: the road ahead is shown in time (just behind the camera it came too late),
  * and nothing of the kart can be seen. It does not move by itself (immobile, speed 0, air time 0), makes
  * no sound (sounds.c), no controller rumble (sp_rumble) and no respawn (sp_respawn), its laps and race
- * end are ignored (sp_player_lap, sp_player_finished), and its WRONG WAY check looks at the watched
+ * end are ignored (sp_player_lap, sp_finish_blocked), and its WRONG WAY check looks at the watched
  * ghost (sp_wrong_way_position and _angles, hud.c). */
 #define CARRY_AHEAD 0.3f
 #define CARRY_UNDER 400.0f
@@ -1053,11 +1053,11 @@ void sp_player_lap(void *hud, int lap)
 }
 
 /* A replay never counts as a finished race of the player: no record, ghost, unlock or leaderboard data.
- * At the function's start, as 0xd29fd0 also comes here (force finish), not only the lap count. */
-void sp_player_finished(void *system, void *racer)
+ * Asked at the start of "racer finished" (0xf351b0, sp_finish_gate in hooks.s), as 0xd29fd0 also goes
+ * there (force finish), not only the lap count. 1 = skip the game's function. */
+int sp_finish_blocked(void)
 {
-    if (sp.active) return;
-    game_racer_finished(system, racer);
+    return sp.active;
 }
 
 /* The game's speed for a stopped playback: not 0, as quitting from a level whose last frame had no
