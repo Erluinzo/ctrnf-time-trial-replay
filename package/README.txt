@@ -1,4 +1,4 @@
-Ghost Viewer 0.9.6 - by Onur
+Ghost Viewer 0.9.7 - by Onur
 
 Watch Time Trial ghosts as a replay.
 
@@ -17,6 +17,7 @@ shared ghost: put its .crr in RaceReplay).
 
 0.9.6: works online with OCTR v0.8.3+ (0.9.5 stops the game from starting
 online there).
+0.9.7: works with OCTR v0.9 (its built-in Pack Tacho used the same memory).
 
 Nothing is saved.
 Game: CTR Nitro-Fueled 1.21 on the OCTR launcher. This ZIP is for USA

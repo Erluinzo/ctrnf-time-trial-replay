@@ -7,7 +7,7 @@ import struct, subprocess, sys
 
 PROBES = (0xfcc430, 0xfcc420)   # a game function whose first bytes are known (USA, EU): finds the image base
 PROLOGUE = bytes.fromhex('554889e541574156415541545348')
-STATE = 0x2beea80
+STATE_POINTER = 0x2bee670   # g_sp: the state's address (game malloc, made on first use)
 # armed active set_up paused speed scrub time end watch ghosts | buttons | manager kart lock hud camera target
 # | bit[8] | frames menu_presses camera_sets
 LAYOUT = struct.Struct('<6i2f2iQ6Q11B1x3iifi')
@@ -34,11 +34,15 @@ def main():
                 pass
         if base is None:
             sys.exit('game image not found')
-        mem.seek(base + STATE)
+        mem.seek(base + STATE_POINTER)
+        state = struct.unpack('<Q', mem.read(8))[0]
+        if not state:
+            sys.exit('the state is not made yet')
+        mem.seek(state)
         v = LAYOUT.unpack(mem.read(LAYOUT.size))
-        mem.seek(base + STATE + 196)
+        mem.seek(state + 196)
         heard, heard_watch = struct.unpack('<fi', mem.read(8))
-        mem.seek(base + STATE + 212)
+        mem.seek(state + 212)
         played = struct.unpack('<i', mem.read(4))[0]
     (armed, active, set_up, paused, speed, scrub, time, end, watch, ghosts, buttons,
      manager, kart, lock, hud, camera, target, *rest) = v

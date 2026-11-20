@@ -11,8 +11,6 @@
  * memory from the game's malloc, freed at the next race. */
 #include "spectate.h"
 
-extern void *(*const game_malloc)(unsigned long size) GAME;     /* the game's malloc and free (import slots) */
-extern void (*const game_free)(void *memory) GAME;
 extern void game_boost_create(void *component, void *data, void *source) GAME;
 extern void game_add_boost_original(void **out, void *component, void *definition, void *a, void *b, float strength) GAME;
 extern void *g_boost_meta GAME;                                 /* CKartBoostComponent */

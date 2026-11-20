@@ -18,7 +18,7 @@ With [Ghost Sharing](https://github.com/Erluinzo/ctrnf-ghost-share), watch your 
 
 **Exact ghosts:** a ghost with its full race (`.crr`) is played from it (60 samples a second instead of the ghost's keys), also in normal Time Trials. The game's own replays (OCTR v0.8.2+) keep one for every personal best; for a shared ghost, put its `.crr` in the `RaceReplay` folder (OCTR folder > `user/savedata/1/CUSA13795`, EU `CUSA14876`; game closed). Ghost files are never changed.
 
-Nothing is saved. Works with the [Reserves Meter](https://github.com/Erluinzo/ctrnf-reserves-meter).
+Nothing is saved.
 
 ## Install
 Download the ZIP for your game from [Releases](https://github.com/Erluinzo/ctrnf-time-trial-replay/releases):

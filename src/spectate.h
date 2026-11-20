@@ -174,14 +174,26 @@ struct state {
     float fire_speed[HISTORY_GHOSTS];   /* race speed with the fire race_fire keeps (boosts.c), 0 = none */
     void *races;            /* race.c: the playing ghosts' full race recordings */
 };
-_Static_assert(sizeof(struct state) <= 0x4f8, "state must fit 0x2beea80-0x2beef78");
 _Static_assert(__builtin_offsetof(struct state, heard) == 196 && __builtin_offsetof(struct state, sounds_played) == 212
                && __builtin_offsetof(struct state, log_n) == 216 && __builtin_offsetof(struct state, log) == 224,
                "tools/peek.py and tools/sounds.py read these offsets");
-extern struct state sp GAME;
-/* For other mods (the Reserves Meter): the watched ghost's kart during a spectator run, else 0. Set at
- * the start of each frame (sp_input) from the frame before, so it is 0 again one frame after a run
- * ends. Fixed address 0x2beef78; the memory is 0 when this mod is not installed. */
+/* The state lives in memory from the game's malloc, made on first use; g_sp (fixed 0x2bee670) keeps
+ * its address. Until 0.9.6 it was in the free space after the game's data, which OCTR v0.9's Pack
+ * Tacho now uses. A failed malloc of these few bytes means the game is out of memory anyway: there is
+ * no safe fallback. */
+extern void *(*const game_malloc)(unsigned long size) GAME;     /* the game's malloc and free (import slots) */
+extern void (*const game_free)(void *memory) GAME;
+extern struct state *g_sp GAME;
+struct state *sp_alloc(void);
+static inline struct state *sp_get(void)
+{
+    struct state *p = g_sp;
+    return __builtin_expect(p != 0, 1) ? p : sp_alloc();
+}
+#define sp (*sp_get())
+/* For other mods (Input Display 1.0.2+): the watched ghost's kart during a spectator run, else 0. Set
+ * at the start of each frame (sp_input) from the frame before, so it is 0 again one frame after a run
+ * ends. Fixed address 0x2bee678 (0x2beef78 until 0.9.6); the memory is 0 when this mod is not installed. */
 extern void *g_spectate_kart GAME;
 
 /* Field access on game objects */

@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "id": "time-trial-replay-eu",
   "name": "Ghost Viewer (EU)",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "author": "Onur",
   "description": "Watch Time Trial ghosts as a replay: L1 in the ghost menu.",
   "requiresCapabilities": [
@@ -19,8 +19,8 @@
   "files": [
     {
       "file": "README.txt",
-      "sha256": "418dcbf10ba5d4f1d18ae96b16a4f7a1c98fbe3e42c720bd3d402e35eeeb5f73",
-      "bytes": 921
+      "sha256": "9a1a72abb14eadb7c602c4a9df84139dccae17f0c1e64b2859e7bfca8d448292",
+      "bytes": 997
     },
     {
       "file": "gamebananapageurl.txt",
@@ -34,8 +34,8 @@
     },
     {
       "file": "patches/TimeTrialReplay-EU.xml",
-      "sha256": "0d26f4bef2963358726a06d4086e99152f74d93bcbc07fdaf65bc33d88cd416b",
-      "bytes": 81940
+      "sha256": "9042cf609e4d6fe90cba64a6390a344d65054dd5ac092cf87c66e0957d366700",
+      "bytes": 91331
     }
   ]
 }

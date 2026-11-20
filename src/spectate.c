@@ -9,6 +9,16 @@
  */
 #include "spectate.h"
 
+struct state *sp_alloc(void)
+{
+    struct state *p = game_malloc(sizeof *p), *first = 0;
+    __builtin_memset(p, 0, sizeof *p);
+    /* Two threads may get here at once at the start: keep the first block */
+    if (__atomic_compare_exchange_n(&g_sp, &first, p, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) return p;
+    game_free(p);
+    return first;
+}
+
 static void show_preview(void);
 static void kart_hidden(void *kart, int hidden);
 static void send(void *(*factory)(void *pool), void *kart);

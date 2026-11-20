@@ -16,8 +16,6 @@ extern int sce_save_mount2(const void *mount, void *result) GAME;
 extern int sce_save_umount(const void *point) GAME;
 extern void *game_current_zone(void *zones) GAME;   /* CZoneInfo: +0x10 level name */
 extern void *g_zone_system GAME;
-extern void *(*const game_malloc)(unsigned long size) GAME;
-extern void (*const game_free)(void *memory) GAME;
 
 /* ---- The .crr file (Replay Mode's replay.h, versions 4 and 5) ---- */
 struct rr_racer {

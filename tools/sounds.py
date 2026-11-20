@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Prints the last wall-hit sounds the spectator played (state log in src/spectate.h), oldest first."""
 import struct, subprocess, sys
-STATE = 0x800000000 + 0x2beea80
 LOG = 216       # offset of log_n in struct state
 pid = int(subprocess.check_output(['pgrep', '-x', 'sacredfire']).split()[0])
 mem = open(f'/proc/{pid}/mem', 'rb')
 def read(at, n):
     mem.seek(at)
     return mem.read(n)
+STATE = struct.unpack('<Q', read(0x800000000 + 0x2bee670, 8))[0]   # g_sp: the state's address
+if not STATE:
+    sys.exit('the state is not made yet')
 n = struct.unpack('<i', read(STATE + LOG, 4))[0]
 entries = [struct.unpack('<Qfi', read(STATE + LOG + 8 + 16 * i, 16)) for i in range(16)]
 for k in range(max(0, n - 16), n):

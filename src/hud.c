@@ -20,7 +20,6 @@ extern void *game_find_driver(void *drivers, const char *name) GAME;   /* CRacer
 extern void game_hud_set_lap(void *hud, int lap) GAME;
 extern void game_hud_bar(void *hud, int style) GAME;
 extern void *g_race_clock_meta GAME;    /* CRaceClockComponent (world entity): +0x28 _raceTimer */
-extern uint32_t *g_race_replay GAME;    /* the Replay Mode mod's state, or 0 */
 static float ghost_end_time(void *ghost);
 void sp_boost_update(void *hud, int flag);
 static void *world(void);
@@ -315,8 +314,7 @@ void pause_row(void *project)
     if (post_race) rows = top ? post_race_rows(top, 0) : 0;
     if (!rows || child_count(rows) < 4) return;
     /* not in a Replay Mode mod's replay (its state's first word has bit 31 set then; 0 without that mod) */
-    int race_replay = g_race_replay && (*g_race_replay & 0x80000000u);
-    int show = g_game && AT(g_game, 0xd4c, int32_t) == 2 && g_ghost_manager && count(AT(g_ghost_manager, 0x40, void *)) && !race_replay;
+    int show = g_game && AT(g_game, 0xd4c, int32_t) == 2 && g_ghost_manager && count(AT(g_ghost_manager, 0x40, void *));
     if (!show) return;
     /* the row that restarts the race, and the one that comes under the new row */
     void *restart = child(rows, post_race ? 3 : 1), *hints = child(rows, post_race ? 2 : 3);

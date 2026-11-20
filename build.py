@@ -14,13 +14,19 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GAME_DIR = HERE.parent / 'CTRNF'
-VERSION = '0.9.6'
+VERSION = '0.9.7'
 EBOOT_BASE = 0x400000       # patch XML addresses are ELF addresses + 0x400000
 
-CODE = 0x2324000            # unused zero padding in the code segment (0x2317810-0x233c078), after ghost sharing
-CODE_END = 0x232dc00        # (to 0x2323792); 0x232dc00-0x2330000 and 0x2330000-0x2338000 are Replay Mode's
-STATE = 0x2beea80           # after the game's data (ends 0x2bee66d) and ghost sharing's state (0x2bee680, 0x350 used),
-STATE_END = 0x2beef80       # before the reserves meter's state (0x2beef80)
+CODE = 0x2327000            # unused zero padding in the code segment (0x2317810-0x233c078), between OCTR v0.9's
+CODE_END = 0x2330000        # Pack Tacho (0x2322000-0x2326940, 0x2330000-0x2335124); Ghost Sharing ends 0x2320000
+# Data after the game's .data (ends 0x2bee66d). 0x2bee670-0x2bee680 is free in every known layout:
+# Ghost Sharing 1.2.2 0x2bee680-0x2bee9d8 (1.2.3 0x2beea80-0x2beedd8), Input Display 0x2beea70,
+# Replay Mode 0x2beea78, Ghost Viewer 0.9.6 0x2beea80-0x2beef80, Reserves Meter 0x2beef80-0x2bef000,
+# Pack Tacho (OCTR v0.9) 0x2bee700-0x2beefa0.
+STATE_POINTER = 0x2bee670   # g_sp: the state's address (game malloc)
+SPECTATE_KART = 0x2bee678   # g_spectate_kart, read by Input Display
+MORE = 0x2335200            # race.c (section .more): free space after Pack Tacho's second area
+MORE_END = 0x2338000
 MAX_WRITE = 4096
 GAME = {
     'game_handle_resolve': 0x149fca0, 'game_make_handle': 0x14bea20, 'game_release': 0x149d260,
@@ -45,7 +51,7 @@ GAME = {
     'g_kart_camera_meta': 0x2ac42e8, 'g_hud_meta': 0x2ad4940, 'g_vehicle_audio_meta': 0x2adc4e8, 'g_race_settings': 0x2ad4e30,
     'g_string_pool': 0x2af2600, 'g_game': 0x2acde48, 'g_racer_manager': 0x2ad4b70, 'g_gui_manager': 0x2ac0dc0, 'g_composition_vtable': 0x2431b18, 'g_minimap_player_vtable': 0x2544ea0,
     'g_kart_move_meta': 0x2ac4580, 'g_render_matrix_meta': 0x2acf5d8, 'g_kart_damage_meta': 0x2ac5018, 'game_maintained': 0xe2f050, 'g_crates': 0x2acdc40, 'g_crate_collector_meta': 0x2ab5c78, 'game_crate_enter': 0xeec470, 'g_race_clock_meta': 0x2ad3ec8, 'g_race_system_meta': 0x2ae34c8, 'g_child_manager_meta': 0x2ab3b68, 'g_world_ready': 0x2a92868, 'g_world_id': 0x2a92888,
-    'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'sp': STATE, 'g_spectate_kart': 0x2beef78, 'g_race_replay': 0x2beea78, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
+    'g_world_no_id': 0x2a922d0, 'g_entity_table': 0x2a92880, 'g_sp': STATE_POINTER, 'g_spectate_kart': SPECTATE_KART, 'game_malloc': 0x2807aa8, 'game_free': 0x2807a50, 'game_boost_create': 0xe2e6b0, 'g_boost_meta': 0x2ac4018,
     'sce_open': 0x1beab78, 'sce_pread': 0x1bea7b8, 'sce_close': 0x1beaa38, 'sce_getdents': 0x1beaa18, 'sce_initial_user': 0x1be8df8,
     'sce_save_mount2': 0x1beaa68, 'sce_save_umount': 0x1bea988, 'game_current_zone': 0x102e040, 'g_zone_system': 0x2ae3c18,
 }
@@ -130,8 +136,8 @@ CFLAGS = ['-c', '-Os', '-std=c11', '-fpie', '-ffreestanding', '-fno-stack-protec
 RELATIVE = {'R_X86_64_PC32', 'R_X86_64_PLT32'}
 
 LINKER_SCRIPT = '''SECTIONS {
-  . = %#x;
-  .text : { *(.text .text.*) *(.rodata .rodata.*) }
+  .more %#x : { */race.c.o(.text .text.* .rodata .rodata.*) }
+  .text %#x : { *(.text .text.*) *(.rodata .rodata.*) }
   /DISCARD/ : { *(.comment) *(.note*) *(.eh_frame*) }
 }
 '''
@@ -161,36 +167,40 @@ def build_code(tmp, game):
         if kinds - RELATIVE:
             sys.exit(f'{obj.name}: not RIP-relative: {sorted(kinds - RELATIVE)}')
     script = tmp / 'link.ld'
-    script.write_text(LINKER_SCRIPT % CODE)
+    script.write_text(LINKER_SCRIPT % (MORE, CODE))
     linked = tmp / 'patch.elf'
     run('ld', '-T', script, '-o', linked, '-e', 'sp_clock',
         *[f'--defsym={name}={address:#x}' for name, address in game.items()], *objects)
     sections = subprocess.run(['readelf', '-SW', linked], capture_output=True, text=True, check=True).stdout
-    # [Nr] Name Type Address Off Size ES Flg ...: only .text may take space in memory
+    # [Nr] Name Type Address Off Size ES Flg ...: only .text and .more may take space in memory
     for name, size, flags in re.findall(r'\[\s*\d+\]\s+(\S+)\s+\S+\s+[0-9a-f]+\s+[0-9a-f]+\s+([0-9a-f]+)\s+[0-9a-f]+\s+(\S*)', sections):
-        if 'A' in flags and name != '.text' and int(size, 16):
+        if 'A' in flags and name not in ('.text', '.more') and int(size, 16):
             sys.exit(f'unexpected section {name}: the code segment cannot hold writable data')
     symbols = {}
     for line in subprocess.run(['nm', linked], capture_output=True, text=True, check=True).stdout.splitlines():
         address, _, name = line.split()
         symbols[name] = int(address, 16)
-    binary = tmp / 'patch.bin'
-    run('objcopy', '-O', 'binary', '-j', '.text', linked, binary)
-    return binary.read_bytes(), symbols
+    parts = []
+    for section in ('.text', '.more'):
+        binary = tmp / f'patch{section}.bin'
+        run('objcopy', '-O', 'binary', '-j', section, linked, binary)
+        parts.append(binary.read_bytes())
+    return parts[0], parts[1], symbols
 
 
 def build(title, e):
     elf = e['elf'].read_bytes()
     game = {name: e['moved'].get(address, address) for name, address in GAME.items()}
     with tempfile.TemporaryDirectory() as tmp:
-        code, symbols = build_code(Path(tmp), game)
-    if CODE + len(code) > CODE_END:
-        sys.exit(f'code is {len(code)} bytes: does not fit before {CODE_END:#x}')
-    if read(elf, CODE, len(code)) != bytes(len(code)):
-        sys.exit(f'{e["elf"]}: the area at {CODE:#x} is not empty')
+        code, more, symbols = build_code(Path(tmp), game)
     data_end = 0x2a00000 + 0x1ee66d
-    if STATE < data_end or STATE + 0x500 > STATE_END:
-        sys.exit('state area is not in the free space after the game data')
+    if not data_end <= STATE_POINTER < SPECTATE_KART < 0x2bee680:
+        sys.exit('the state pointer and g_spectate_kart must be in 0x2bee66d-0x2bee680')
+    for start, end, part in ((CODE, CODE_END, code), (MORE, MORE_END, more)):
+        if start + len(part) > end:
+            sys.exit(f'code is {len(part)} bytes: does not fit before {end:#x}')
+        if read(elf, start, len(part)) != bytes(len(part)):
+            sys.exit(f'{e["elf"]}: the area at {start:#x} is not empty')
 
     lines = []
     for usa_address, original, opcode, target, padding in HOOKS:
@@ -213,8 +223,9 @@ def build(title, e):
             sys.exit(f'signature at {address:#x} is not unique')
         lines.append((address, new, signature, 8))
     # The port's loader takes at most 4096 bytes per write (src/probe.c, "bad patch entry")
-    for at in range(0, len(code), MAX_WRITE):
-        lines.append((CODE + at, code[at:at + MAX_WRITE], None, 0))
+    for start, part in ((CODE, code), (MORE, more)):
+        for at in range(0, len(part), MAX_WRITE):
+            lines.append((start + at, part[at:at + MAX_WRITE], None, 0))
 
     def line(va, value, signature, offset):
         sha = hashlib.sha256(read(elf, va, len(value))).hexdigest()
@@ -226,7 +237,7 @@ def build(title, e):
 <!-- Built by build.py from src/: edit those, not this file.{" EU edition." if e["name"] == "EU" else ""}
      Ghost Viewer: L1 in the Time Trial ghost menu plays the chosen ghosts as a replay.
      The camera follows one ghost; time can be paused, rewound, sped up or slowed down. The last
-     lines are the new code ({len(code)} bytes). -->
+     lines are the new code ({len(code)} + {len(more)} bytes). -->
 <Patch>
   <TitleID><ID>{title}</ID></TitleID>
   <Metadata Title="Crash Team Racing Nitro-Fueled" Name="Ghost Viewer"
@@ -240,7 +251,7 @@ def build(title, e):
 '''
     e['xml'].parent.mkdir(parents=True, exist_ok=True)
     e['xml'].write_text(xml, encoding='utf-8')
-    print(f'{e["xml"].relative_to(HERE)}: {len(HOOKS)} hooks, code {len(code)} bytes at {CODE:#x}')
+    print(f'{e["xml"].relative_to(HERE)}: {len(HOOKS)} hooks, code {len(code)} bytes at {CODE:#x} + {len(more)} at {MORE:#x}')
     if e['test_copy'].parent.is_dir():
         e['test_copy'].write_text(xml.replace('AppElf="eboot.bin">', 'AppElf="eboot.bin" isEnabled="true">'), encoding='utf-8')
         print(f'test copy, switched on: {e["test_copy"]}')
